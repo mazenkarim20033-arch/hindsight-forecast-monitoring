@@ -3,6 +3,8 @@
 An `Analysis` holds, for one dataset and one set of settings, the replay of every method, their ranges, the scorecard and the
 forecast for the days after the last one in the file. Nothing here changes the numbers the research code produces; it only
 chooses sensible defaults for a business owner (how much history needs which methods) and shapes the results for display."""
+import hashlib
+import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -50,16 +52,19 @@ class Plan:
     min_train: int
     step: int
     explanation: str
+    params: dict = field(default_factory=dict)  # numbers behind the explanation, so a client can say it in another language
 
 
 def plan_for(n_days: int, horizon: int) -> Plan:
     if n_days < 120:
+        more_days, more_months = max(0, 120 - n_days), max(0, 730 - n_days) // 30
         return Plan("too_little", 0, 0, f"Your file covers {n_days} days. Hindsight needs at least 120 days (about 4 months) to replay anything; two years is better. "
-                                          f"Add {max(0, 120 - n_days)} more days of daily sales, or about {max(0, 730 - n_days) // 30} more months for the full comparison.")
+                                          f"Add {more_days} more days of daily sales, or about {more_months} more months for the full comparison.", {"days": n_days, "more_days": more_days, "more_months": more_months})
     if n_days < 730:
+        more_months = max(0, 730 - n_days) // 30 + 1
         return Plan("simple", 60, 3, f"Your file covers {n_days} days ({n_days / 30:.0f} months). That is enough to compare simple rules, but not to trust a learning model. "
-                                     f"With about {max(0, 730 - n_days) // 30 + 1} more months the app will also test a machine-learning forecast.")
-    return Plan("full", 365, 5, f"Your file covers {n_days / 365:.1f} years, enough to compare simple rules against a learning model.")
+                                     f"With about {more_months} more months the app will also test a machine-learning forecast.", {"days": n_days, "months": round(n_days / 30), "more_months": more_months})
+    return Plan("full", 365, 5, f"Your file covers {n_days / 365:.1f} years, enough to compare simple rules against a learning model.", {"years": round(n_days / 365, 1)})
 
 
 @dataclass
@@ -96,12 +101,47 @@ def _with_pending(replay: Replay, final: np.ndarray, n_days: int) -> Replay:
                   np.concatenate([replay.actuals, np.full((1,) + f.shape, np.nan)]), replay.dates, replay.ids)
 
 
-def run_analysis(data: SalesData, settings: Settings, progress: Callable[[float, str], None] | None = None) -> Analysis:
+CACHE_VERSION = 1  # bump when the research code changes what an analysis contains
+
+
+def analysis_key(data: SalesData, settings: Settings) -> str:
+    h = hashlib.sha256()
+    h.update(np.ascontiguousarray(data.values, dtype=np.float64).tobytes())
+    h.update(",".join([*data.ids, str(data.dates[0]), str(data.dates[-1]), str(settings), str(CACHE_VERSION)]).encode())
+    if settings.calendar == "events":
+        h.update(data.calendar.to_csv(index=False).encode())
+    return h.hexdigest()[:24]
+
+
+def run_analysis(data: SalesData, settings: Settings, progress: Callable[[float, str], None] | None = None, cache_dir: Path | None = None) -> Analysis:
+    """Replay every method and score it. With `cache_dir`, an identical earlier analysis is loaded from disk instead of recomputed
+    (only used for the bundled sample: uploaded files are never written to disk). The cache holds pickles this program wrote itself."""
     data.validate()
     settings.validate(data)
     plan = plan_for(data.n_days, settings.horizon)
     if plan.tier == "too_little":
         raise ValueError(plan.explanation)
+    cached = cache_dir / f"{analysis_key(data, settings)}.pkl" if cache_dir else None
+    if cached is not None and cached.exists():
+        try:
+            with cached.open("rb") as f:
+                loaded = pickle.load(f)
+            if progress:
+                progress(1.0, "Done")
+            return loaded
+        except Exception:  # noqa: BLE001 - a damaged or outdated cache file just means we recompute
+            cached.unlink(missing_ok=True)
+    result = _compute(data, settings, plan, progress)
+    if cached is not None:
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cached.with_suffix(".tmp")
+        with tmp.open("wb") as f:
+            pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp.replace(cached)
+    return result
+
+
+def _compute(data: SalesData, settings: Settings, plan: Plan, progress: Callable[[float, str], None] | None) -> Analysis:
     origins = make_origins(data.n_days, settings.horizon, plan.min_train, plan.step)
     forecasters = list(BASELINES)
     if plan.tier == "full":
@@ -156,7 +196,7 @@ def verdict(a: Analysis) -> dict:
     candidates = [r for r in a.rows if not r["is_reference"] and not r["is_auto"]]
     best = min(candidates + [ref], key=lambda r: r["wape"])
     if best["is_reference"]:
-        return {"kind": "reference_best", "method": REFERENCE, "wape": ref["wape"], "gain": 0.0,
+        return {"kind": "reference_best", "method": REFERENCE, "wape": ref["wape"], "reference_wape": ref["wape"], "gain": 0.0,
                 "text": f"The simple rule was the most accurate: it was off by {ref['wape']:.0%} of sales on average. Nothing cleverer earned its place on your history."}
     lo, hi = best["gain_ci95"]
     gain = best["gain_vs_reference"]
@@ -167,7 +207,7 @@ def verdict(a: Analysis) -> dict:
         kind, text = "worse", f"'{best['method']}' was no better than the simple weekday rule here."
     else:
         kind, text = "tie", (f"'{best['method']}' and the simple weekday rule were too close to call ({best['wape']:.1%} against {ref['wape']:.1%}). Prefer the simple rule: it is easier to explain.")
-    return {"kind": kind, "method": best["method"], "wape": best["wape"], "gain": gain, "gain_ci95": [lo, hi], "text": text}
+    return {"kind": kind, "method": best["method"], "wape": best["wape"], "reference_wape": ref["wape"], "win_rate": best["win_rate_vs_reference"], "gain": gain, "gain_ci95": [lo, hi], "text": text}
 
 
 def overview(a: Analysis) -> dict:

@@ -36,8 +36,8 @@
     --accent: #8ea2ff;
     --accent-ink: #0a0f1e;
     --accent-soft: #1b2650;
-    --stage: #131f55;
-    --stage-deep: #0c1540;
+    --stage: #1a2a70;
+    --stage-deep: #0f1b52;
     --hit-ink: #4fd1b7;
     --miss-ink: #ff8f7a;
     --warn-bg: #2b2410;
@@ -73,6 +73,10 @@ strong { font-weight: 600; }
 .topbar nav a { padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 500; }
 .topbar nav a:hover { color: var(--ink); background: var(--accent-soft); }
 .topbar nav a.active { color: var(--accent-ink); background: var(--accent); }
+.top-end { display: flex; align-items: center; gap: 14px; margin-inline-start: auto; min-width: 0; }
+.lang { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 500; min-height: 36px; }
+.lang:hover { background: var(--accent-soft); }
+[dir="rtl"] .topbar nav a, [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] .brand span { letter-spacing: 0; }
 .filechip { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; color: var(--muted); margin-inline-start: auto; min-width: 0; }
 .fname { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .change { color: var(--accent); white-space: nowrap; }
@@ -119,8 +123,11 @@ legend { padding: 0; font-weight: 600; margin-bottom: 6px; }
 .alert-box { padding: 14px 18px; border-radius: 12px; background: var(--warn-bg); border: 1px solid var(--warn-line); }
 
 /* Start */
-.hero { display: grid; gap: 14px; justify-items: start; }
-.hero h1 { max-width: 20ch; font-size: clamp(2rem, 4.6vw, 3.3rem); }
+.hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 36px; align-items: center; }
+.hero-text { display: grid; gap: 14px; justify-items: start; }
+.hero h1 { max-width: 20ch; font-size: clamp(2rem, 4.2vw, 3.1rem); }
+.hero-stage { width: 100%; height: auto; border-radius: 18px; box-shadow: 0 24px 48px -28px rgba(15, 27, 69, 0.7); direction: ltr; }
+@media (max-width: 960px) { .hero { grid-template-columns: 1fr; gap: 22px; } .hero-stage { order: 2; max-width: 520px; } }
 .start-grid { display: grid; grid-template-columns: 1.7fr 1fr; gap: 22px; }
 .drop { display: grid; gap: 10px; justify-items: start; align-content: center; min-height: 230px; padding: 28px; border: 2px dashed #9aa6e8; border-radius: 18px; background: var(--card); cursor: pointer; position: relative; transition: border-color 0.15s, background 0.15s; }
 .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }

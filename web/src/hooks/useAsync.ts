@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 
-export interface AsyncState<T> { data: T | null; error: string | null; loading: boolean }
+export interface Problem { message: string; code?: string; params?: Record<string, unknown> }
+export interface AsyncState<T> { data: T | null; error: Problem | null; loading: boolean }
+
+export function toProblem(err: unknown): Problem {
+  return err instanceof ApiError ? { message: err.message, code: err.code, params: err.params } : { message: String(err) };
+}
 
 /** Run `load` whenever `deps` change; a newer call cancels the older one so answers never arrive out of order. */
 export function useAsync<T>(load: (signal: AbortSignal) => Promise<T>, deps: unknown[]): AsyncState<T> & { reload: () => void } {
@@ -14,7 +19,7 @@ export function useAsync<T>(load: (signal: AbortSignal) => Promise<T>, deps: unk
       (data) => !ctl.signal.aborted && setState({ data, error: null, loading: false }),
       (err) => {
         if (ctl.signal.aborted || (err as Error).name === "AbortError") return;
-        setState((s) => ({ data: s.data, error: err instanceof ApiError ? err.message : String(err), loading: false }));
+        setState((s) => ({ data: s.data, error: toProblem(err), loading: false }));
       },
     );
     return () => ctl.abort();

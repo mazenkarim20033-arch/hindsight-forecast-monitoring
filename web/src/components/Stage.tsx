@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { useWidth } from "../hooks/useSize";
+import { useLang } from "../i18n";
 import { dateShort, monthYear, num } from "../lib/format";
 import type { StageModel } from "../lib/models";
 
@@ -10,6 +11,8 @@ interface Props {
   curtainText?: string;
 }
 
+// Time runs left to right in every language, so the chart is drawn in a left-to-right box even on a right-to-left page.
+
 const PAD = { l: 56, r: 18, t: 34, b: 66 };
 
 function compact(v: number): string {
@@ -19,6 +22,7 @@ function compact(v: number): string {
 /** The replay stage: real sales up to the cursor, the forecast fan opening from the day it was made, and the curtain over what is not yet known. */
 export function Stage({ model, label, onSeek, curtainText }: Props) {
   const [ref, W] = useWidth<HTMLDivElement>();
+  const { t } = useLang();
   const uid = useId().replace(/:/g, "");
   const H = Math.round(Math.min(440, Math.max(300, W * 0.4)));
   const { dates, actual, fan, cursor, hits, ymax } = model;
@@ -79,7 +83,7 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
   };
 
   return (
-    <div ref={ref} className="stage-canvas">
+    <div ref={ref} className="stage-canvas" dir="ltr">
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} onClick={seek} className={onSeek ? "seekable" : undefined}>
         <defs>
           <pattern id={`pleat-${uid}`} width="12" height="12" patternUnits="userSpaceOnUse">
@@ -119,7 +123,7 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
           <g>
             <line className="today" x1={x(fan.origin)} x2={x(fan.origin)} y1={PAD.t - 12} y2={H - PAD.b} />
             <text className="today-label" x={x(fan.origin) + (x(fan.origin) > W - 190 ? -8 : 8)} y={PAD.t - 16} textAnchor={x(fan.origin) > W - 190 ? "end" : "start"}>
-              {model.live ? "Today" : `Forecast made ${dateShort(dates[fan.origin])}`}
+              {model.live ? t("stage.today") : t("stage.made", { date: dateShort(dates[fan.origin]) })}
             </text>
           </g>
         )}
@@ -128,8 +132,8 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
         )}
 
         {hits && <g>
-          <text className="lane-label" x={PAD.l - 10} y={laneY - 2} textAnchor="end">held</text>
-          <text className="lane-label" x={PAD.l - 10} y={laneY + 14} textAnchor="end">missed</text>
+          <text className="lane-label" x={PAD.l - 10} y={laneY - 2} textAnchor="end">{t("stage.held")}</text>
+          <text className="lane-label" x={PAD.l - 10} y={laneY + 14} textAnchor="end">{t("stage.missed")}</text>
           <line className="lane" x1={PAD.l} x2={W - PAD.r} y1={laneY + 5} y2={laneY + 5} />
           {Array.from({ length: Math.max(0, Math.min(cursor, end) - start + 1) }, (_, k) => start + k).map((i) => {
             const h = hits?.[i];
@@ -147,7 +151,7 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
             <text key={`m${m.i}`} className="axis" x={x(m.i)} y={H - 8} textAnchor={m.i === start ? "start" : "middle"}>{m.text}</text>
           ))}
         </g>
-        {W >= 560 && <text className="axis-title" x={PAD.l - 10} y={14} textAnchor="start">units sold per day · max {num(ymax)}</text>}
+        {W >= 560 && <text className="axis-title" x={PAD.l - 10} y={14} textAnchor="start">{t("stage.axis", { max: num(ymax) })}</text>}
       </svg>
     </div>
   );

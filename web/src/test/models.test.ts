@@ -67,7 +67,7 @@ describe("formatting", () => {
   });
   it("formats percentages and point differences", () => {
     expect(pct(0.0756, 1)).toBe("7.6%");
-    expect(pct(null)).toBe("n/a");
+    expect(pct(null)).toBe("–");
     expect(signedPoints(0.023)).toBe("+2.3 pts");
     expect(signedPoints(-0.01)).toBe("−1.0 pts");
   });

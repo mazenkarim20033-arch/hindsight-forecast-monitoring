@@ -2,7 +2,7 @@
 
 Upload your sales history, press play, and watch what a forecast would have said at every point in the past, against what really happened. Every replay date uses only the data known at that time, so you can see how far to trust the next forecast.
 
-**Status: Milestone 4 of 6 (API and interface).** There is no interface yet. Plan: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md); design direction: [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md); results so far: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
+**Status: Milestone 5 of 6 (polish, English and Arabic, performance).** Arabic text is not yet reviewed by a native speaker; see [docs/APP_NOTES.md](docs/APP_NOTES.md) for what was and was not checked. There is no interface yet. Plan: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md); design direction: [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md); results so far: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
 
 ## What exists
 - A validated sales data model (any daily series, aggregated by store, category and so on).
@@ -21,7 +21,7 @@ pip install -e ".[api,dev]"
 python -m uvicorn hindsight.app.api:app --port 8100
 cd web && npm install && npm run dev      # then open http://localhost:5174
 ```
-Use "Use the sample data" on the start page to try it without a file (the 10 Walmart stores in `data/sample/`, real M5 data). A replay on the sample takes about a minute.
+Use "Use the sample data" on the start page to try it without a file (the 10 Walmart stores in `data/sample/`, real M5 data). The first replay on the sample takes about a minute; it is then cached and reloads in under a second. The interface is in English and Arabic (right-to-left); the button at the top right switches.
 
 ## Setup
 ```bash

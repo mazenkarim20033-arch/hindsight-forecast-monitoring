@@ -132,6 +132,16 @@ def test_item_names_that_contain_digits_are_text_and_currency_marks_are_ignored(
     assert data2.values[0, 1] == 1001 and data2.values[0, 0] == 1234
 
 
+def test_messages_carry_codes_and_numbers_so_a_client_can_translate_them():
+    rows = ["date,qty"] + [f"{d.date()},{'' if i == 3 else ('-4' if i == 5 else '8')}" for i, d in enumerate(days(40))]
+    _, rep, _ = read_sales_file(csv("\n".join(rows)), "n.csv")
+    by_code = {n.code: n.params for n in rep.notes}
+    assert by_code["blank_values"] == {"n": 1} and by_code["negatives"] == {"n": 1}
+    with pytest.raises(ImportProblem) as e:
+        read_sales_file(csv("date,qty\n2024-01-01,5\n2024-01-02,6"), "x.csv")
+    assert e.value.code == "too_short" and e.value.params == {"days": 2, "min_days": 28}
+
+
 def test_a_date_column_is_not_confused_with_numbers_that_look_like_years():
     rows = ["date,qty"] + [f"{d.date()},{2020 + i % 5}" for i, d in enumerate(days(40))]
     _, _, det = read_sales_file(csv("\n".join(rows)), "y.csv")

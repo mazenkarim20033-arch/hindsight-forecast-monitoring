@@ -7,9 +7,11 @@ import { Pickers } from "../components/Pickers";
 import { Ribbon } from "../components/Ribbon";
 import { ErrorBox, Loading } from "../components/States";
 import { Stage } from "../components/Stage";
+import { useVerdictText } from "../components/verdict";
 import { useAsync } from "../hooks/useAsync";
 import { SPEEDS, usePlayer } from "../hooks/usePlayer";
-import { dateLong, num, pct, plural } from "../lib/format";
+import { useLang } from "../i18n";
+import { dateLong, num, pct } from "../lib/format";
 import { firstDay, heldSoFar, lastDay, readoutAt, replayModel, stageYMax } from "../lib/models";
 import { useSession } from "../state/session";
 
@@ -21,32 +23,36 @@ export default function Replay() {
 
 function ReplayInner({ id, overview }: { id: string; overview: Overview }) {
   const { item, method, level } = useSession();
+  const { t } = useLang();
   const stage = useAsync((signal) => api.stage(id, { item, method, level }, signal), [id, item, method, level]);
   return (
     <section className="page replay">
       <header className="page-head">
-        <h1>Replay</h1>
-        <p className="lead small">Press play to watch the past again. At each date the forecast sees only what was known then; the curtain lifts as the real days arrive.</p>
+        <h1>{t("replay.title")}</h1>
+        <p className="lead small">{t("replay.lead")}</p>
       </header>
       <Pickers overview={overview} />
-      {stage.error && <ErrorBox message={stage.error} onRetry={stage.reload} />}
-      {!stage.data && !stage.error && <Loading text="Loading the replay" />}
+      {stage.error && <ErrorBox problem={stage.error} onRetry={stage.reload} />}
+      {!stage.data && !stage.error && <Loading text={t("replay.loading")} />}
       {stage.data && <Player stage={stage.data} overview={overview} loading={stage.loading} />}
     </section>
   );
 }
 
 export function NoFile() {
+  const { t } = useLang();
   return (
     <section className="page narrow">
-      <h1>No file yet</h1>
-      <p className="lead small">Load a sales file first, then come back here to replay it.</p>
-      <Link className="btn primary" to="/">Choose a file</Link>
+      <h1>{t("replay.nofile.title")}</h1>
+      <p className="lead small">{t("replay.nofile.text")}</p>
+      <Link className="btn primary" to="/">{t("replay.nofile.button")}</Link>
     </section>
   );
 }
 
 function Player({ stage, overview, loading }: { stage: StageData; overview: Overview; loading: boolean }) {
+  const { t, n } = useLang();
+  const verdictText = useVerdictText();
   const min = firstDay(stage);
   const max = lastDay(stage);
   const player = usePlayer(min, max, min + Math.round((max - min) * 0.25));
@@ -61,10 +67,10 @@ function Player({ stage, overview, loading }: { stage: StageData; overview: Over
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(t.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement;
+      if (["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(el.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === " ") { e.preventDefault(); toggle(); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); step(e.shiftKey ? 7 : 1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); step(e.shiftKey ? 7 : 1); } // arrows follow the chart, where time runs left to right
       else if (e.key === "ArrowLeft") { e.preventDefault(); step(e.shiftKey ? -7 : -1); }
       else if (e.key === "Home") { e.preventDefault(); seek(min); }
       else if (e.key === "End") { e.preventDefault(); seek(max); }
@@ -74,70 +80,66 @@ function Player({ stage, overview, loading }: { stage: StageData; overview: Over
   }, [toggle, step, seek, min, max]);
 
   const date = stage.dates[player.value - stage.first_day];
-  const label = `Replay stage for ${stage.item}. Real sales up to ${date}, with the forecast made on the latest replay date and the range it gave. The future is hidden.`;
+  const label = t("replay.stage.label", { item: stage.item, date });
   const rangeRow = out && out.low != null && out.high != null;
+  const verdict = verdictText(overview.verdict);
+  const saidVars = out ? { made: dateLong(out.madeOn), ahead: n("unit.day", out.daysAhead), low: num(out.low), high: num(out.high), guess: num(out.forecast) } : undefined;
   return (
     <div className={`stage-panel${loading ? " refreshing" : ""}`}>
       <div className="stage" data-testid="stage">
         <div className="stage-top">
           <div>
-            <span className="stage-kicker">Showing</span>
+            <span className="stage-kicker">{t("replay.showing")}</span>
             <strong className="stage-date">{dateLong(date)}</strong>
           </div>
-          <Legend />
+          <ul className="legend" aria-label={t("replay.legend")}>
+            <li><i className="sw actual" /> {t("replay.legend.actual")}</li>
+            <li><i className="sw fan" /> {t("replay.legend.fan")}</li>
+            <li><i className="sw curtain" /> {t("replay.legend.curtain")}</li>
+          </ul>
         </div>
-        <Stage model={model} label={label} onSeek={seekLocal} curtainText="Not yet revealed" />
+        <Stage model={model} label={label} onSeek={seekLocal} curtainText={t("stage.hidden")} />
         <div className="transport">
-          <div className="buttons" role="group" aria-label="Playback">
-            <button className="icon-btn" onClick={() => player.seek(min)} aria-label="Back to the start" title="Back to the start (Home)"><Skip /></button>
-            <button className="icon-btn" onClick={() => player.step(-1)} aria-label="Back one day" title="Back one day (←)"><Step dir={-1} /></button>
-            <button className="play" onClick={player.toggle} aria-label={player.playing ? "Pause" : "Play"} title={`${player.playing ? "Pause" : "Play"} (space)`}>{player.playing ? <Pause /> : <Play />}</button>
-            <button className="icon-btn" onClick={() => player.step(1)} aria-label="Forward one day" title="Forward one day (→)"><Step dir={1} /></button>
+          <div className="buttons" role="group" aria-label={t("replay.playback")} dir="ltr">
+            <button className="icon-btn" onClick={() => player.seek(min)} aria-label={t("replay.start")} title={t("replay.start")}><Skip /></button>
+            <button className="icon-btn" onClick={() => player.step(-1)} aria-label={t("replay.back")} title={t("replay.back")}><Step dir={-1} /></button>
+            <button className="play" onClick={player.toggle} aria-label={player.playing ? t("replay.pause") : t("replay.play")} title={player.playing ? t("replay.pause") : t("replay.play")}>{player.playing ? <Pause /> : <Play />}</button>
+            <button className="icon-btn" onClick={() => player.step(1)} aria-label={t("replay.forward")} title={t("replay.forward")}><Step dir={1} /></button>
           </div>
-          <div className="speed" role="group" aria-label="Speed">
+          <div className="speed" role="group" aria-label={t("replay.speed")} dir="ltr">
             {SPEEDS.map((s, i) => <button key={s.label} aria-pressed={player.speed === i} className={player.speed === i ? "on" : ""} onClick={() => player.setSpeed(i)}>{s.label}</button>)}
           </div>
-          <p className="hint">Space plays · arrows step a day · shift+arrows step a week</p>
+          <p className="hint">{t("replay.hint")}</p>
         </div>
         <Ribbon hits={stage.ribbon.hit} dates={stage.dates} cursor={player.value - stage.first_day} min={min - stage.first_day} max={max - stage.first_day} onSeek={seekLocal} />
-        <p className="ribbon-legend"><span className="k hit"><Check size={12} /> range held</span> <span className="k miss"><Cross size={12} /> real sales fell outside it</span> <span className="k none">blank: no range yet</span></p>
+        <p className="ribbon-legend"><span className="k hit"><Check size={12} /> {t("replay.ribbon.held")}</span> <span className="k miss"><Cross size={12} /> {t("replay.ribbon.missed")}</span> <span className="k none">{t("replay.ribbon.none")}</span></p>
       </div>
 
       <div className="readouts" aria-live={player.playing ? "off" : "polite"}>
         <article className="readout day">
-          <h2>On this day</h2>
+          <h2>{t("replay.day.title")}</h2>
           {out ? (
             <>
-              <p className="said">The forecast made on {dateLong(out.madeOn)}, {plural(out.daysAhead, "day")} earlier, said <strong>{rangeRow ? `${num(out.low)} to ${num(out.high)}` : `about ${num(out.forecast)}`}</strong>{rangeRow ? ` (best guess ${num(out.forecast)})` : ""}.</p>
-              <p className="sold">Real sales: <strong className="actual">{num(out.actual)}</strong></p>
+              <p className="said">{rangeRow ? t("replay.day.said.range", saidVars) : t("replay.day.said.point", saidVars)}</p>
+              <p className="sold">{t("replay.day.sold")} <strong className="actual">{num(out.actual)}</strong></p>
               {out.hit != null ? (
-                <p className={`result ${out.hit ? "ok" : "bad"}`}>{out.hit ? <><Check /> Inside the range</> : <><Cross /> Outside the range</>}</p>
-              ) : <p className="result none">No range yet: not enough track record.</p>}
+                <p className={`result ${out.hit ? "ok" : "bad"}`}>{out.hit ? <><Check /> {t("replay.day.inside")}</> : <><Cross /> {t("replay.day.outside")}</>}</p>
+              ) : <p className="result none">{t("replay.day.norange")}</p>}
             </>
-          ) : <p className="muted">Pick a later date to see a forecast and what happened.</p>}
+          ) : <p className="muted">{t("replay.day.empty")}</p>}
         </article>
         <article className="readout trust">
-          <h2>How much to trust the range</h2>
-          <p className="big-number" data-testid="held">{held.of ? pct(held.held / held.of) : "n/a"}</p>
-          <p>of days so far landed inside the {pct(stage.level)} range ({num(held.held)} of {num(held.of)}). A trustworthy range should land close to {pct(stage.level)}.</p>
+          <h2>{t("replay.trust.title")}</h2>
+          <p className="big-number" data-testid="held">{held.of ? pct(held.held / held.of) : "–"}</p>
+          <p>{t("replay.trust.text", { level: pct(stage.level), held: num(held.held), of: num(held.of) })}</p>
         </article>
         <article className="readout verdict-mini">
-          <h2>Is it better than a simple rule?</h2>
-          <p>{overview.verdict.text}</p>
-          <Link className="btn secondary" to="/scorecard">Open the scorecard</Link>
+          <h2>{t("replay.verdict.title")}</h2>
+          <p>{verdict.text}</p>
+          <Link className="btn secondary" to="/scorecard">{t("replay.verdict.open")}</Link>
         </article>
       </div>
     </div>
-  );
-}
-
-function Legend() {
-  return (
-    <ul className="legend" aria-label="Chart key">
-      <li><i className="sw actual" /> Real sales</li>
-      <li><i className="sw fan" /> Forecast and its range</li>
-      <li><i className="sw curtain" /> Not yet known</li>
-    </ul>
   );
 }
 

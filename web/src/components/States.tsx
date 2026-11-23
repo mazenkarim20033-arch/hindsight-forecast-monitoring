@@ -1,20 +1,25 @@
 import type { ReactNode } from "react";
+import type { Problem } from "../hooks/useAsync";
+import { useLang, useServerText } from "../i18n";
 
-export function Loading({ text = "Loading" }: { text?: string }) {
+export function Loading({ text }: { text?: string }) {
+  const { t } = useLang();
   return (
     <div className="state" role="status" aria-live="polite">
       <span className="spinner" aria-hidden="true" />
-      <span>{text}</span>
+      <span>{text ?? t("state.loading")}</span>
     </div>
   );
 }
 
-export function ErrorBox({ message, onRetry, children }: { message: string; onRetry?: () => void; children?: ReactNode }) {
+export function ErrorBox({ problem, onRetry, children }: { problem: Problem; onRetry?: () => void; children?: ReactNode }) {
+  const { t } = useLang();
+  const say = useServerText();
   return (
     <div className="state error" role="alert">
-      <strong>That did not work.</strong>
-      <span>{message}</span>
-      {onRetry && <button className="btn secondary" onClick={onRetry}>Try again</button>}
+      <strong>{t("state.failed")}</strong>
+      <span>{say(problem, "problem")}</span>
+      {onRetry && <button className="btn secondary" onClick={onRetry}>{t("state.retry")}</button>}
       {children}
     </div>
   );

@@ -21,6 +21,7 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 ROOT = Path(__file__).resolve().parents[3]
 SAMPLE_DIR = ROOT / "data" / "sample"
 WEB_DIST = ROOT / "web" / "dist"
+CACHE_DIR = ROOT / "artifacts" / "cache"
 
 
 @dataclass
@@ -62,11 +63,11 @@ def _summary(e: Entry) -> dict:
     return {"id": e.id, "filename": e.filename, "is_sample": e.is_sample, "report": e.report, "detection": e.detection,
             "n_series": d.n_series, "n_days": d.n_days, "first_date": str(d.dates[0].date()), "last_date": str(d.dates[-1].date()),
             "has_events": "event_name_1" in d.calendar.columns, "analyzed": e.analysis is not None,
-            "plan": {"tier": (p := service.plan_for(d.n_days, 28)).tier, "text": p.explanation}}
+            "plan": {"tier": (p := service.plan_for(d.n_days, 28)).tier, "text": p.explanation, "params": p.params}}
 
 
 def _note_dicts(notes) -> list[dict]:
-    return [{"level": n.level, "text": n.text} for n in notes]
+    return [{"level": n.level, "text": n.text, "code": n.code, "params": n.params} for n in notes]
 
 
 def _describe(data: SalesData, report, det) -> tuple[dict, dict]:
@@ -95,7 +96,7 @@ def create_app(serve_web: bool = True) -> FastAPI:
 
     @app.exception_handler(ImportProblem)
     async def _import_problem(_, exc: ImportProblem):
-        return JSONResponse(status_code=422, content={"message": str(exc)})
+        return JSONResponse(status_code=422, content={"message": str(exc), "code": exc.code, "params": exc.params})
 
     def entry(dataset_id: str) -> Entry:
         if dataset_id not in datasets:
@@ -157,7 +158,7 @@ def create_app(serve_web: bool = True) -> FastAPI:
             def progress(p: float, msg: str):
                 job.progress, job.message = float(p), msg
             try:
-                e.analysis = service.run_analysis(e.data, settings, progress)
+                e.analysis = service.run_analysis(e.data, settings, progress, CACHE_DIR if e.is_sample else None)  # uploads are never written to disk
                 job.state, job.progress, job.message = "done", 1.0, "Done"
             except Exception as err:  # noqa: BLE001 - report any failure to the user instead of hanging the job
                 traceback.print_exc()

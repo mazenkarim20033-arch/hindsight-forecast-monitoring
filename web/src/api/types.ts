@@ -1,16 +1,16 @@
 export type Level = 0.8 | 0.9;
-export interface Note { level: "info" | "warning"; text: string }
+export interface Note { level: "info" | "warning"; text: string; code?: string; params?: Record<string, unknown> }
 export interface ColumnInfo { name: string; examples: string[]; numeric_share: number }
 export interface Detection { layout: "long" | "wide"; date: string; value: string | null; item: string | null; item_columns: string[]; columns: ColumnInfo[] }
 export interface ImportReport { layout: string; rows: number; n_series: number; first_date: string; last_date: string; n_days: number; notes: Note[] }
 export interface DatasetSummary {
   id: string; filename: string; is_sample: boolean; report: ImportReport; detection: Detection;
   n_series: number; n_days: number; first_date: string; last_date: string; has_events: boolean; analyzed: boolean;
-  plan: { tier: "full" | "simple" | "too_little"; text: string };
+  plan: { tier: "full" | "simple" | "too_little"; text: string; params?: Record<string, unknown> };
 }
 export interface Job { id: string; dataset: string; state: "running" | "done" | "failed"; progress: number; message: string; error: string | null }
 
-export interface Verdict { kind: "beats" | "tie" | "worse" | "reference_best"; method: string; wape: number; gain: number; gain_ci95?: [number, number]; text: string }
+export interface Verdict { kind: "beats" | "tie" | "worse" | "reference_best"; method: string; wape: number; reference_wape: number; win_rate?: number; gain: number; gain_ci95?: [number, number]; text: string }
 export interface Overview {
   tier: "full" | "simple"; tier_text: string; settings: { horizon: number; calendar: string };
   dates: { first: string; last: string; n_days: number }; replay: { n_dates: number; first_scored: string; step_days: number };

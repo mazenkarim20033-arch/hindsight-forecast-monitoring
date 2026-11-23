@@ -1,4 +1,5 @@
 import { HashRouter, NavLink, Route, Routes, Navigate } from "react-router-dom";
+import { LangProvider, useLang } from "./i18n";
 import { Mark } from "./components/Mark";
 import NextWeek from "./pages/NextWeek";
 import Replay from "./pages/Replay";
@@ -8,27 +9,33 @@ import { SessionProvider, useSession } from "./state/session";
 
 function Shell() {
   const { dataset, overview, forget } = useSession();
+  const { t, lang, setLang } = useLang();
   const ready = Boolean(dataset && overview);
   return (
     <>
-      <a className="skip" href="#main">Skip to the content</a>
+      <a className="skip" href="#main">{t("app.skip")}</a>
       <header className="topbar">
-        <NavLink to="/" className="brand" aria-label="Hindsight, start page"><Mark /><span>Hindsight</span></NavLink>
-        <nav aria-label="Main">
+        <NavLink to="/" className="brand" aria-label={t("app.brand")}><Mark /><span>Hindsight</span></NavLink>
+        <nav aria-label={t("nav.main")}>
           {ready ? (
             <>
-              <NavLink to="/replay">Replay</NavLink>
-              <NavLink to="/scorecard">Scorecard</NavLink>
-              <NavLink to="/next">Next week</NavLink>
+              <NavLink to="/replay">{t("nav.replay")}</NavLink>
+              <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
+              <NavLink to="/next">{t("nav.next")}</NavLink>
             </>
           ) : null}
         </nav>
-        {dataset && (
-          <div className="filechip" title={dataset.filename}>
-            <span className="fname">{dataset.is_sample ? "Sample data" : dataset.filename}</span>
-            <NavLink to="/" onClick={forget} className="change">Change file</NavLink>
-          </div>
-        )}
+        <div className="top-end">
+          {dataset && (
+            <div className="filechip" title={dataset.filename}>
+              <span className="fname">{dataset.is_sample ? t("app.sample") : dataset.filename}</span>
+              <NavLink to="/" onClick={forget} className="change">{t("app.change")}</NavLink>
+            </div>
+          )}
+          <button className="lang" onClick={() => setLang(lang === "ar" ? "en" : "ar")} lang={lang === "ar" ? "en" : "ar"} aria-label={t("app.language")}>
+            {lang === "ar" ? "English" : "العربية"}
+          </button>
+        </div>
       </header>
       <main id="main" tabIndex={-1}>
         <Routes>
@@ -40,7 +47,7 @@ function Shell() {
         </Routes>
       </main>
       <footer className="foot">
-        <p>Hindsight shows what a forecast would have said in the past. A good record is evidence, not a guarantee. Sample data: M5 Walmart sales, CC BY 4.0, US retail.</p>
+        <p>{t("app.footer")}</p>
       </footer>
     </>
   );
@@ -49,9 +56,11 @@ function Shell() {
 export default function App() {
   return (
     <HashRouter>
-      <SessionProvider>
-        <Shell />
-      </SessionProvider>
+      <LangProvider>
+        <SessionProvider>
+          <Shell />
+        </SessionProvider>
+      </LangProvider>
     </HashRouter>
   );
 }

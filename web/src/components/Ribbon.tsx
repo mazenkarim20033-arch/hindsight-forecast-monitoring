@@ -1,4 +1,5 @@
 import { useWidth } from "../hooks/useSize";
+import { useLang } from "../i18n";
 import { dateLong } from "../lib/format";
 
 interface Props {
@@ -10,16 +11,18 @@ interface Props {
   onSeek: (localDay: number) => void;
 }
 
-/** The whole track record in one strip: a short teal bar above the line where the range held, a coral bar below it where it did not. */
+/** The whole track record in one strip: a short teal bar above the line where the range held, a coral bar below it where it did not.
+ *  Time runs left to right in every language, like the chart above it. */
 export function Ribbon({ hits, dates, cursor, min, max, onSeek }: Props) {
   const [ref, W] = useWidth<HTMLDivElement>(800);
+  const { t } = useLang();
   const H = 54;
   const n = hits.length;
   const step = W / n;
   const x = (i: number) => i * step;
   const mid = 26;
   return (
-    <div className="ribbon" ref={ref}>
+    <div className="ribbon" ref={ref} dir="ltr">
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
         <line className="lane" x1={0} x2={W} y1={mid} y2={mid} />
         {hits.map((h, i) => {
@@ -35,7 +38,7 @@ export function Ribbon({ hits, dates, cursor, min, max, onSeek }: Props) {
       </svg>
       <input
         type="range" min={min} max={max} step={1} value={Math.min(Math.max(cursor, min), max)}
-        aria-label="Replay date" aria-valuetext={dates[cursor] ? dateLong(dates[cursor]) : undefined}
+        aria-label={t("replay.ribbon.date")} aria-valuetext={dates[cursor] ? dateLong(dates[cursor]) : undefined}
         onChange={(e) => onSeek(Number(e.target.value))}
       />
     </div>

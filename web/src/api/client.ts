@@ -1,7 +1,7 @@
 import type { Alerts, AnalysisSettings, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code = "", public params: Record<string, unknown> = {}) {
     super(message);
   }
 }
@@ -21,19 +21,24 @@ async function request<T>(path: string, init?: RequestInit, params?: Params, sig
     res = await fetch(`${BASE}${path}${query ? `?${query}` : ""}`, { ...init, signal });
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err;
-    throw new ApiError(0, API_DOWN);
+    throw new ApiError(0, API_DOWN, "server_down");
   }
   if (!res.ok) {
     let message = `The request failed (${res.status}).`;
+    let code = "";
+    let params: Record<string, unknown> = {};
     try {
       const body = await res.json();
       if (typeof body.message === "string") message = body.message;
       else if (typeof body.detail === "string") message = body.detail;
       else if (Array.isArray(body.detail)) message = body.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ") || message;
+      if (typeof body.code === "string") { code = body.code; params = body.params ?? {}; }
     } catch {
       /* keep the generic message */
     }
-    throw new ApiError(res.status, message);
+    if (!code && res.status === 404 && message.includes("no longer loaded")) code = "gone";
+    if (!code && res.status === 409) code = "run_first";
+    throw new ApiError(res.status, message, code, params);
   }
   return (await res.json()) as T;
 }

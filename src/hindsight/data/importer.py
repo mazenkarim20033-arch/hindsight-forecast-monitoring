@@ -24,13 +24,23 @@ AR_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "012345678
 
 
 class ImportProblem(Exception):
-    """A file that cannot be used. The message says what is wrong and how to fix it."""
+    """A file that cannot be used. The message says what is wrong and how to fix it; `code` and `params` let a client say it in another language."""
+
+    def __init__(self, message: str, code: str = "", **params):
+        super().__init__(message)
+        self.code, self.params = code, params
 
 
 @dataclass
 class Note:
     level: str  # "info" or "warning"
     text: str
+    code: str = ""
+    params: dict = field(default_factory=dict)
+
+
+def _note(level: str, text: str, code: str = "", **params) -> Note:
+    return Note(level, text, code, params)
 
 
 @dataclass
@@ -66,7 +76,7 @@ def _decode(raw: bytes) -> str:
             return raw.decode(enc)
         except UnicodeDecodeError:
             continue
-    raise ImportProblem("The file's text encoding could not be read. Save it as CSV (UTF-8) or Excel and upload again.")
+    raise ImportProblem("The file's text encoding could not be read. Save it as CSV (UTF-8) or Excel and upload again.", "encoding")
 
 
 def _read_table(raw: bytes, filename: str, notes: list[Note]) -> pd.DataFrame:
@@ -75,13 +85,13 @@ def _read_table(raw: bytes, filename: str, notes: list[Note]) -> pd.DataFrame:
         try:
             sheets = pd.read_excel(io.BytesIO(raw), sheet_name=None, dtype=object)
         except Exception as e:  # noqa: BLE001 - any reader failure is a bad file for the user
-            raise ImportProblem(f"The Excel file could not be opened ({type(e).__name__}). Save it again as .xlsx or CSV and upload again.") from e
+            raise ImportProblem(f"The Excel file could not be opened ({type(e).__name__}). Save it again as .xlsx or CSV and upload again.", "excel_unreadable") from e
         sheets = {k: v for k, v in sheets.items() if len(v) and v.shape[1] >= 2}
         if not sheets:
-            raise ImportProblem("No sheet in the workbook has a table with at least two columns.")
+            raise ImportProblem("No sheet in the workbook has a table with at least two columns.", "no_sheet")
         first = next(iter(sheets))
         if len(sheets) > 1:
-            notes.append(Note("warning", f"The workbook has {len(sheets)} sheets with data. Only the first one, '{first}', was read."))
+            notes.append(_note("warning", f"The workbook has {len(sheets)} sheets with data. Only the first one, '{first}', was read.", "sheets", n=len(sheets), first=str(first)))
         df = sheets[first]
     elif name.endswith((".csv", ".txt", ".tsv")):
         text = _decode(raw)
@@ -90,13 +100,13 @@ def _read_table(raw: bytes, filename: str, notes: list[Note]) -> pd.DataFrame:
         try:
             df = pd.read_csv(io.StringIO(text), sep=sep, dtype=object, skip_blank_lines=True)
         except Exception as e:  # noqa: BLE001
-            raise ImportProblem("The file could not be read as a table. Check that it has one header row and one row per record.") from e
+            raise ImportProblem("The file could not be read as a table. Check that it has one header row and one row per record.", "unreadable_table") from e
     else:
-        raise ImportProblem("Upload a .csv or .xlsx file.")
+        raise ImportProblem("Upload a .csv or .xlsx file.", "bad_type")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.loc[:, [c for c in df.columns if not c.startswith("Unnamed:")]].dropna(how="all")
     if df.shape[1] < 2 or len(df) < 2:
-        raise ImportProblem("The file needs at least a date column and a sales column, with a header row.")
+        raise ImportProblem("The file needs at least a date column and a sales column, with a header row.", "too_small")
     return df.reset_index(drop=True)
 
 
@@ -151,7 +161,7 @@ def _parse_dates(col: pd.Series, notes: list[Note]) -> pd.Series:
     else:
         dayfirst = True
         if ((p1 <= 12) & (p2 <= 12) & (p1 != p2)).any():
-            notes.append(Note("warning", "Some dates could be read as day/month or month/day, and nothing in the file settles it. They were read as day/month, as is usual in Egypt. If that is wrong, change the date format in the file."))
+            notes.append(_note("warning", "Some dates could be read as day/month or month/day, and nothing in the file settles it. They were read as day/month, as is usual in Egypt. If that is wrong, change the date format in the file.", "ambiguous_dates"))
     out = pd.to_datetime(s, dayfirst=dayfirst, errors="coerce", format="mixed")
     return out.dt.normalize()
 
@@ -182,7 +192,7 @@ def detect(df: pd.DataFrame) -> Detection:
     cands = [c for c in cols if plausible(c)]
     named = [c for c in cands if _header_hit(c, DATE_WORDS)]
     if not (named or cands):
-        raise ImportProblem("No column looks like a date. Add a column with the day of each sale (for example 2024-03-15 or 15/03/2024) and upload again.")
+        raise ImportProblem("No column looks like a date. Add a column with the day of each sale (for example 2024-03-15 or 15/03/2024) and upload again.", "no_date_column")
     date_col = (named or cands)[0]
     rest = [c for c in cols if c != date_col]
     numeric = [c for c in rest if _number_share(sample[c]) > 0.9]
@@ -196,11 +206,11 @@ def detect(df: pd.DataFrame) -> Detection:
         id_col = (id_named or [c for c in texty if 1 < df[c].nunique() <= max(200, len(df) // 3)] or [None])[0]
         pool = value_named or numeric
         if not pool:
-            raise ImportProblem("No column holds sales numbers. Add a column with the quantity or amount sold per row and upload again.")
+            raise ImportProblem("No column holds sales numbers. Add a column with the quantity or amount sold per row and upload again.", "no_value_column")
         value_col = pool[0]
         series_cols = []
         if len(pool) > 1 and not value_named:
-            notes.append(Note("warning", f"Several columns look like numbers. '{value_col}' was used as the sales column; change it if that is wrong."))
+            notes.append(_note("warning", f"Several columns look like numbers. '{value_col}' was used as the sales column; change it if that is wrong.", "several_numeric", column=str(value_col)))
     return Detection(layout, date_col, value_col, id_col, series_cols, info, notes)
 
 
@@ -217,49 +227,49 @@ def build(df: pd.DataFrame, det: Detection, source: str = "upload") -> tuple[Sal
         work["value"] = _to_number(df[det.value_col])
         long = work
     if bad_dates:
-        notes.append(Note("warning", f"{bad_dates} rows had no readable date and were left out."))
+        notes.append(_note("warning", f"{bad_dates} rows had no readable date and were left out.", "bad_dates", n=bad_dates))
         long = long.dropna(subset=["date"])
     blank = int(long["value"].isna().sum())
     if blank:
-        notes.append(Note("warning", f"{blank} rows had no readable sales number and were counted as 0."))
+        notes.append(_note("warning", f"{blank} rows had no readable sales number and were counted as 0.", "blank_values", n=blank))
         long = long.assign(value=long["value"].fillna(0.0))
     neg = int((long["value"] < 0).sum())
     if neg:
-        notes.append(Note("warning", f"{neg} rows had negative numbers (returns?). They were counted as 0."))
+        notes.append(_note("warning", f"{neg} rows had negative numbers (returns?). They were counted as 0.", "negatives", n=neg))
         long = long.assign(value=long["value"].clip(lower=0))
     if long.empty:
-        raise ImportProblem("No usable rows were left after reading dates and numbers.")
+        raise ImportProblem("No usable rows were left after reading dates and numbers.", "no_rows")
     per_day = long.groupby(["series", "date"], sort=False)["value"].sum().reset_index()
     if len(per_day) < len(long):
-        notes.append(Note("info", f"Several rows shared the same item and day ({len(long):,} rows became {len(per_day):,} daily totals). They were added together."))
+        notes.append(_note("info", f"Several rows shared the same item and day ({len(long):,} rows became {len(per_day):,} daily totals). They were added together.", "aggregated", rows=len(long), days=len(per_day)))
     first, last = per_day["date"].min(), per_day["date"].max()
     days = pd.date_range(first, last, freq="D")
     if len(days) < MIN_DAYS:
-        raise ImportProblem(f"The file covers only {len(days)} days. At least {MIN_DAYS} consecutive days are needed, and several months for a useful replay.")
+        raise ImportProblem(f"The file covers only {len(days)} days. At least {MIN_DAYS} consecutive days are needed, and several months for a useful replay.", "too_short", days=len(days), min_days=MIN_DAYS)
     wide = per_day.pivot(index="date", columns="series", values="value").reindex(days)
     gaps = int(wide.isna().all(axis=1).sum())
     if gaps:
         run = int((wide.isna().all(axis=1).astype(int).groupby((~wide.isna().all(axis=1)).cumsum()).cumsum()).max())
-        notes.append(Note("warning", f"{gaps} days between the first and last date had no rows at all (longest run: {run} days). They were counted as 0 sales. If the shop was open and records are missing, the forecast will be misled."))
+        notes.append(_note("warning", f"{gaps} days between the first and last date had no rows at all (longest run: {run} days). They were counted as 0 sales. If the shop was open and records are missing, the forecast will be misled.", "gaps", n=gaps, longest=run))
     partial = int(wide.isna().sum().sum()) - gaps * wide.shape[1]
     if partial > 0:
-        notes.append(Note("info", f"{partial:,} item-days had no row (the item did not sell or was not recorded). They were counted as 0."))
+        notes.append(_note("info", f"{partial:,} item-days had no row (the item did not sell or was not recorded). They were counted as 0.", "partial_days", n=partial))
     wide = wide.fillna(0.0)
     if wide.shape[1] > MAX_SERIES:
         keep = wide.sum().nlargest(MAX_SERIES).index
-        notes.append(Note("warning", f"The file has {wide.shape[1]} items. The {MAX_SERIES} with the most sales were kept."))
+        notes.append(_note("warning", f"The file has {wide.shape[1]} items. The {MAX_SERIES} with the most sales were kept.", "too_many_items", n=int(wide.shape[1]), kept=MAX_SERIES))
         wide = wide[keep]
     wide = wide.loc[:, wide.sum() > 0]
     if wide.shape[1] == 0:
-        raise ImportProblem("Every item has zero sales in this file.")
+        raise ImportProblem("Every item has zero sales in this file.", "all_zero")
     ids = [str(c) for c in wide.columns]
     if len(set(ids)) != len(ids):
-        raise ImportProblem("Two items have the same name after cleaning. Rename one of them in the file.")
+        raise ImportProblem("Two items have the same name after cleaning. Rename one of them in the file.", "duplicate_items")
     data = SalesData(pd.DatetimeIndex(days), ids, wide.to_numpy().T.copy(), source=source)
     try:
         data.validate()
     except DataValidationError as e:
-        raise ImportProblem(str(e)) from e
+        raise ImportProblem(str(e), "invalid_data") from e
     mapping = {"date": det.date_col, "value": det.value_col, "item": det.id_col, "item_columns": det.series_cols}
     report = ImportReport(det.layout, len(df), len(ids), str(first.date()), str(last.date()), len(days), mapping, notes)
     return data, report
@@ -274,7 +284,7 @@ def read_sales_file(raw: bytes, filename: str, mapping: dict | None = None) -> t
     if mapping:
         missing = [c for c in [mapping.get("date"), mapping.get("value"), mapping.get("item"), *(mapping.get("item_columns") or [])] if c and c not in df.columns]
         if missing:
-            raise ImportProblem(f"These columns are not in the file: {', '.join(missing)}.")
+            raise ImportProblem(f"These columns are not in the file: {', '.join(missing)}.", "missing_columns", columns=", ".join(missing))
         det.date_col = mapping.get("date") or det.date_col
         if mapping.get("item_columns"):
             det.layout, det.series_cols, det.value_col, det.id_col = "wide", list(mapping["item_columns"]), None, None

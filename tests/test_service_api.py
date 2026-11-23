@@ -128,6 +128,22 @@ def test_sample_loads_with_events_and_offers_the_event_calendar(client):
     assert s["is_sample"] and s["n_series"] == 10 and s["n_days"] == 1941 and s["has_events"] and s["plan"]["tier"] == "full"
 
 
+def test_an_identical_analysis_is_loaded_from_the_cache_and_a_changed_one_is_not(tmp_path):
+    t = np.arange(260)
+    shape = np.array([1.0, 0.8, 0.8, 0.9, 1.1, 1.8, 1.6])[t % 7]
+    d = SalesData(make_dates(260), ["a"], np.vstack([50 * shape]))
+    first = service.run_analysis(d, service.Settings(horizon=7), cache_dir=tmp_path)
+    assert len(list(tmp_path.glob("*.pkl"))) == 1
+    ticks = []
+    second = service.run_analysis(d, service.Settings(horizon=7), lambda p, m: ticks.append(m), cache_dir=tmp_path)
+    assert ticks == ["Done"] and [r["wape"] for r in second.rows] == [r["wape"] for r in first.rows]
+    service.run_analysis(d, service.Settings(horizon=14), cache_dir=tmp_path)
+    assert len(list(tmp_path.glob("*.pkl"))) == 2
+    (next(iter(tmp_path.glob("*.pkl")))).write_bytes(b"damaged")
+    again = service.run_analysis(d, service.Settings(horizon=7), cache_dir=tmp_path)  # a damaged cache file is recomputed, not fatal
+    assert again.rows
+
+
 def test_a_pending_final_origin_never_leaks_into_scoring():
     dates = make_dates(400)
     t = np.arange(400)
