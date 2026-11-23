@@ -1,3 +1,5 @@
+> **Superseded in part (redesign).** The dark lapis stage, blue-indigo accent, saffron and upload-first landing page below were replaced by a SENTINEL-style neutral look (paper, ink, teal for forecasts, shape-coded green/amber/red) and a dashboard front door. The replay is now one lab among several features. See docs/APP_NOTES.md.
+
 # Hindsight: design brief (draft for review)
 
 ## Who and what
