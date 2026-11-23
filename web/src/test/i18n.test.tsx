@@ -39,7 +39,7 @@ describe("language switch", () => {
     window.location.hash = "#/";
     sessionStorage.clear();
     localStorage.clear();
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 500 })));
   });
 
   it("flips the page to right-to-left Arabic and back, and remembers the choice", async () => {
@@ -48,7 +48,7 @@ describe("language switch", () => {
     await userEvent.click(screen.getByRole("button", { name: /language/i }));
     expect(document.documentElement.dir).toBe("rtl");
     expect(document.documentElement.lang).toBe("ar");
-    expect(await screen.findByRole("heading", { level: 1, name: /اعرف إلى أي مدى تثق/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /لوحة المتابعة/ })).toBeInTheDocument();
     const violations = (await axe.run(container, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations;
     expect(violations.map((v) => v.id)).toEqual([]);
     unmount();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Overview, Stage as StageData } from "../api/types";
@@ -17,39 +17,28 @@ import { useSession } from "../state/session";
 
 export default function Replay() {
   const { dataset, overview } = useSession();
-  if (!dataset || !overview) return <NoFile />;
+  if (!dataset || !overview) return null;
   return <ReplayInner id={dataset.id} overview={overview} />;
 }
 
 function ReplayInner({ id, overview }: { id: string; overview: Overview }) {
-  const { item, method, level } = useSession();
+  const { method, level } = useSession();
   const { t } = useLang();
+  const [item, setItem] = useState(overview.series[0]?.id);
   const stage = useAsync((signal) => api.stage(id, { item, method, level }, signal), [id, item, method, level]);
   return (
-    <section className="page replay">
+    <>
       <header className="page-head">
         <h1>{t("replay.title")}</h1>
-        <p className="lead small">{t("replay.lead")}</p>
+        <p className="lede">{t("replay.lead")}</p>
       </header>
-      <Pickers overview={overview} />
+      <Pickers overview={overview} item={item} setItem={setItem} />
       {stage.error && <ErrorBox problem={stage.error} onRetry={stage.reload} />}
       {!stage.data && !stage.error && <Loading text={t("replay.loading")} />}
       {stage.data && <Player stage={stage.data} overview={overview} loading={stage.loading} />}
-    </section>
+    </>
   );
 }
-
-export function NoFile() {
-  const { t } = useLang();
-  return (
-    <section className="page narrow">
-      <h1>{t("replay.nofile.title")}</h1>
-      <p className="lead small">{t("replay.nofile.text")}</p>
-      <Link className="btn primary" to="/">{t("replay.nofile.button")}</Link>
-    </section>
-  );
-}
-
 function Player({ stage, overview, loading }: { stage: StageData; overview: Overview; loading: boolean }) {
   const { t, n } = useLang();
   const verdictText = useVerdictText();
@@ -85,12 +74,12 @@ function Player({ stage, overview, loading }: { stage: StageData; overview: Over
   const verdict = verdictText(overview.verdict);
   const saidVars = out ? { made: dateLong(out.madeOn), ahead: n("unit.day", out.daysAhead), low: num(out.low), high: num(out.high), guess: num(out.forecast) } : undefined;
   return (
-    <div className={`stage-panel${loading ? " refreshing" : ""}`}>
-      <div className="stage" data-testid="stage">
-        <div className="stage-top">
+    <div className="lab" aria-busy={loading}>
+      <div className="panel" data-testid="stage">
+        <div className="panel-top">
           <div>
-            <span className="stage-kicker">{t("replay.showing")}</span>
-            <strong className="stage-date">{dateLong(date)}</strong>
+            <span className="panel-kicker">{t("replay.showing")}</span>
+            <strong className="panel-date">{dateLong(date)}</strong>
           </div>
           <ul className="legend" aria-label={t("replay.legend")}>
             <li><i className="sw actual" /> {t("replay.legend.actual")}</li>
@@ -121,7 +110,7 @@ function Player({ stage, overview, loading }: { stage: StageData; overview: Over
           {out ? (
             <>
               <p className="said">{rangeRow ? t("replay.day.said.range", saidVars) : t("replay.day.said.point", saidVars)}</p>
-              <p className="sold">{t("replay.day.sold")} <strong className="actual">{num(out.actual)}</strong></p>
+              <p className="sold">{t("replay.day.sold")} <strong className="actual-num">{num(out.actual)}</strong></p>
               {out.hit != null ? (
                 <p className={`result ${out.hit ? "ok" : "bad"}`}>{out.hit ? <><Check /> {t("replay.day.inside")}</> : <><Cross /> {t("replay.day.outside")}</>}</p>
               ) : <p className="result none">{t("replay.day.norange")}</p>}

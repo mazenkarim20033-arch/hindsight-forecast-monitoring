@@ -1,6 +1,6 @@
 import { api } from "../api/client";
 import type { MethodRow, Scorecard as ScorecardData } from "../api/types";
-import { Check, Cross } from "../components/Mark";
+
 import { useMethodLabel } from "../components/Pickers";
 import { ErrorBox, Loading } from "../components/States";
 import { useVerdictText } from "../components/verdict";
@@ -8,11 +8,11 @@ import { useAsync } from "../hooks/useAsync";
 import { useLang } from "../i18n";
 import { pct, signedPoints } from "../lib/format";
 import { useSession } from "../state/session";
-import { NoFile } from "./Replay";
+
 
 export default function Scorecard() {
   const { dataset, overview } = useSession();
-  if (!dataset || !overview) return <NoFile />;
+  if (!dataset || !overview) return null;
   return <Inner id={dataset.id} />;
 }
 
@@ -20,15 +20,15 @@ function Inner({ id }: { id: string }) {
   const { t } = useLang();
   const sc = useAsync((signal) => api.scorecard(id, signal), [id]);
   return (
-    <section className="page scorecard">
+    <>
       <header className="page-head">
         <h1>{t("score.title")}</h1>
-        <p className="lead small">{t("score.lead")}</p>
+        <p className="lede">{t("score.lead")}</p>
       </header>
       {sc.error && <ErrorBox problem={sc.error} onRetry={sc.reload} />}
       {!sc.data && !sc.error && <Loading text={t("score.loading")} />}
       {sc.data && <Body sc={sc.data} />}
-    </section>
+    </>
   );
 }
 
@@ -48,7 +48,6 @@ function Body({ sc }: { sc: ScorecardData }) {
   return (
     <>
       <article className={`verdict ${sc.verdict.kind}`}>
-        <div className="mark" aria-hidden="true">{sc.verdict.kind === "beats" ? <Check size={26} /> : sc.verdict.kind === "reference_best" ? <Cross size={22} /> : <span>≈</span>}</div>
         <div>
           <h2>{v.title}</h2>
           <p>{v.text}</p>

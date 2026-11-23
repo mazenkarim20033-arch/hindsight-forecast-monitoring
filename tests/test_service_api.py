@@ -85,6 +85,18 @@ def test_the_whole_flow_with_simple_methods(client):
     assert all(l is None or l <= f <= h or True for l, f, h in zip(nx["low"], nx["forecast"], nx["high"]))
     al = client.get(f"/api/datasets/{s['id']}/alerts").json()
     assert al["level"] == 0.98 and isinstance(al["items"], list)
+    only = client.get(f"/api/datasets/{s['id']}/alerts", params={"item": "Milk"}).json()
+    assert all(x["item"] == "Milk" for x in only["items"])
+    dash = client.get(f"/api/datasets/{s['id']}/dashboard").json()
+    assert [i["id"] for i in dash["items"]] == ["Bread", "Milk"] and dash["totals"]["next_7"] > 0 and 0 <= dash["trust"]["coverage_80"] <= 1
+    milk = next(i for i in dash["items"] if i["id"] == "Milk")
+    assert milk["last_7"] > 0 and milk["change"] is not None
+    tot = client.get(f"/api/datasets/{s['id']}/total").json()
+    nx_milk = client.get(f"/api/datasets/{s['id']}/next", params={"item": "Milk"}).json()
+    nx_bread = client.get(f"/api/datasets/{s['id']}/next", params={"item": "Bread"}).json()
+    assert tot["item"] == "All items" and len(tot["forecast"]) == 14
+    assert abs(tot["forecast"][0] - (nx_milk["forecast"][0] + nx_bread["forecast"][0])) < 0.2  # the total forecast is the sum of the items'
+    assert client.get(f"/api/datasets/{s['id']}/total", params={"level": 0.5}).status_code == 422
 
 
 def test_unknown_inputs_are_refused_clearly(client):

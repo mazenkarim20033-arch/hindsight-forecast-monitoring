@@ -41,4 +41,12 @@ export interface Scorecard {
 }
 export interface AlertItem { item: string; date: string; actual: number; expected: number; low: number; high: number; direction: "higher" | "lower"; deviation_pct: number }
 export interface Alerts { level: number; method: string; count: number; items: AlertItem[]; note: string }
+export interface DashItem { id: string; last_7: number; next_7: number; change: number | null; unusual_30d: number; reference_wape: number; best_wape: number; coverage_80: number | null; average_per_day: number }
+export interface Dashboard {
+  method: string; method_in_use: string; horizon: number; last_day: string;
+  totals: { last_7: number; previous_7: number; next_7: number };
+  trust: { coverage_80: number | null; wape: number; reference_wape: number; n_dates: number };
+  verdict: Verdict; unusual_30d: number; items: DashItem[];
+  recent_unusual: { item: string; date: string; actual: number; expected: number; direction: "higher" | "lower" }[];
+}
 export interface AnalysisSettings { horizon: number; calendar: "none" | "egypt" | "events" }

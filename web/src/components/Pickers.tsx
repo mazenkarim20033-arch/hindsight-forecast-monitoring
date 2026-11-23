@@ -14,13 +14,20 @@ export function useMethodLabel() {
   };
 }
 
-export function Pickers({ overview, showLevel = true }: { overview: Overview; showLevel?: boolean }) {
-  const { item, setItem, method, setMethod, level, setLevel } = useSession();
+interface Props {
+  overview: Overview;
+  item?: string;
+  setItem?: (i: string) => void;
+  showLevel?: boolean;
+}
+
+export function Pickers({ overview, item, setItem, showLevel = true }: Props) {
+  const { method, setMethod, level, setLevel } = useSession();
   const { t } = useLang();
   const label = useMethodLabel();
   return (
-    <div className="pickers">
-      {overview.series.length > 1 && (
+    <div className="toolbar pickers">
+      {setItem && overview.series.length > 1 && (
         <label className="pick">
           <span>{t("pick.item")}</span>
           <select value={item} onChange={(e) => setItem(e.target.value)}>
@@ -37,7 +44,7 @@ export function Pickers({ overview, showLevel = true }: { overview: Overview; sh
         </select>
       </label>
       {showLevel && (
-        <fieldset className="pick seg-field">
+        <fieldset className="pick">
           <legend>{t("pick.range")}</legend>
           <div className="seg" role="radiogroup">
             {([0.8, 0.9] as const).map((l) => (

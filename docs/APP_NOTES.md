@@ -1,4 +1,12 @@
-# App notes (M4 and M5)
+# App notes (M4 to M6)
+
+## Redesign (after M5, at the owner's request)
+The first interface was an upload-first landing page, a dark blue stage with an indigo accent, and a replay at the centre of everything. It was replaced by:
+- **A dashboard front door like SENTINEL's.** The app opens on the bundled sample with no upload screen. Screens: Dashboard, Items (and an item page), Replay lab, Scorecard, Data. The replay is one lab among these.
+- **A neutral palette**: warm-grey paper, dark ink, teal for forecasts, ink for real sales, green/amber/red with shapes for status. No blue-purple, no saffron, no dark stage. Headings in IBM Plex Sans Condensed, body in IBM Plex Sans.
+- **Loading your own file moved to the Data page**, where it belongs.
+- **New backend pieces**: `/dashboard` (headline numbers, one row per item, recent unusual days), `/total` (all items added together, with its own honest range because summed item ranges would not be valid), and an `item` filter on `/alerts`.
+- Browser audit after the redesign: axe WCAG A/AA, including contrast, found no violations on any of the six screens in English light and Arabic dark. 97 Python and 22 front-end tests pass.
 
 ## What was checked, and how
 | Check | Result |

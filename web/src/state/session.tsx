@@ -1,25 +1,31 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../api/client";
-import type { DatasetSummary, Overview } from "../api/types";
+import type { AnalysisSettings, DatasetSummary, Job, Overview } from "../api/types";
+import { toProblem, type Problem } from "../hooks/useAsync";
+
+export const AUTO = "best method so far";
+const KEY = "hindsight.dataset";
+const DEFAULTS: AnalysisSettings = { horizon: 28, calendar: "events" };
 
 interface Session {
   dataset: DatasetSummary | null;
   overview: Overview | null;
-  item: string | undefined;
+  /** True while the first dataset is being found or prepared; the app shows a loading page until it is ready. */
+  booting: boolean;
+  job: Job | null;
+  problem: Problem | null;
   method: string;
   level: 0.8 | 0.9;
-  restoring: boolean;
   setDataset: (d: DatasetSummary | null) => void;
-  setOverview: (o: Overview | null) => void;
-  setItem: (i: string) => void;
   setMethod: (m: string) => void;
   setLevel: (l: 0.8 | 0.9) => void;
-  forget: () => void;
+  /** Run the analysis for the current dataset, then make it the one the app shows. */
+  analyze: (settings: AnalysisSettings, dataset?: DatasetSummary) => Promise<boolean>;
+  useSample: () => Promise<boolean>;
+  clearProblem: () => void;
 }
 
 const Ctx = createContext<Session | null>(null);
-const KEY = "hindsight.dataset";
-export const AUTO = "best method so far";
 
 function remembered(): string | null {
   try { return sessionStorage.getItem(KEY); } catch { return null; }
@@ -31,41 +37,87 @@ function remember(id: string | null) {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetState] = useState<DatasetSummary | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [item, setItem] = useState<string | undefined>();
+  const [booting, setBooting] = useState(true);
+  const [job, setJob] = useState<Job | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [method, setMethod] = useState(AUTO);
   const [level, setLevel] = useState<0.8 | 0.9>(0.8);
-  const [restoring, setRestoring] = useState(() => remembered() !== null);
+  const alive = useRef(true);
+  const bootStarted = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const setDataset = useCallback((d: DatasetSummary | null) => {
     setDatasetState(d);
     remember(d?.id ?? null);
     if (!d || !d.analyzed) setOverview(null);
-    setItem(undefined);
     setMethod(AUTO);
   }, []);
 
-  useEffect(() => {
-    const id = remembered();
-    if (!id) return;
-    const ctl = new AbortController();
-    (async () => {
-      try {
-        const d = await api.dataset(id, ctl.signal);
-        setDatasetState(d);
-        if (d.analyzed) setOverview(await api.overview(id, ctl.signal));
-      } catch {
-        remember(null);
-      } finally {
-        if (!ctl.signal.aborted) setRestoring(false);
+  const analyze = useCallback(async (settings: AnalysisSettings, ds?: DatasetSummary): Promise<boolean> => {
+    const target = ds ?? dataset;
+    if (!target) return false;
+    setProblem(null);
+    try {
+      let j = await api.analyze(target.id, settings);
+      setJob(j);
+      while (j.state === "running" && alive.current) {
+        await new Promise((r) => setTimeout(r, 500));
+        j = await api.job(j.id);
+        setJob(j);
       }
+      if (j.state === "failed") { setProblem({ message: j.error ?? "The analysis stopped unexpectedly." }); setJob(null); return false; }
+      const ov = await api.overview(target.id);
+      setDatasetState({ ...target, analyzed: true });
+      remember(target.id);
+      setOverview(ov);
+      setMethod(AUTO);
+      setJob(null);
+      return true;
+    } catch (e) {
+      setProblem(toProblem(e));
+      setJob(null);
+      return false;
+    }
+  }, [dataset]);
+
+  const useSample = useCallback(async () => {
+    setProblem(null);
+    try {
+      const d = await api.sample();
+      setDatasetState(d);
+      return await analyze({ ...DEFAULTS, calendar: d.has_events ? "events" : "none" }, d);
+    } catch (e) {
+      setProblem(toProblem(e));
+      return false;
+    }
+  }, [analyze]);
+
+  // On first load: pick up where this browser tab left off, otherwise open the sample so the app is never empty.
+  useEffect(() => {
+    if (bootStarted.current) return; // React runs effects twice in development; one boot is enough
+    bootStarted.current = true;
+    let cancelled = false;
+    (async () => {
+      const id = remembered();
+      if (id) {
+        try {
+          const d = await api.dataset(id);
+          if (d.analyzed) {
+            const ov = await api.overview(id);
+            if (!cancelled) { setDatasetState(d); setOverview(ov); setBooting(false); }
+            return;
+          }
+        } catch { remember(null); }
+      }
+      if (!cancelled) { await useSample(); if (!cancelled) setBooting(false); }
     })();
-    return () => ctl.abort();
+    return () => { cancelled = false; }; // the boot is allowed to finish even if the effect is re-run
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo<Session>(() => ({
-    dataset, overview, item: item ?? overview?.series[0]?.id, method, level, restoring,
-    setDataset, setOverview, setItem, setMethod, setLevel, forget: () => setDataset(null),
-  }), [dataset, overview, item, method, level, restoring, setDataset]);
+    dataset, overview, booting, job, problem, method, level, setDataset, setMethod, setLevel, analyze, useSample, clearProblem: () => setProblem(null),
+  }), [dataset, overview, booting, job, problem, method, level, setDataset, analyze, useSample]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

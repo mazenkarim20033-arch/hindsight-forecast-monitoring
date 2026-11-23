@@ -200,11 +200,25 @@ def create_app(serve_web: bool = True) -> FastAPI:
             raise HTTPException(422, str(err.args[0] if err.args else err)) from err
 
     @api.get("/datasets/{dataset_id}/alerts")
-    def odd_days(dataset_id: str, method: str = service.AUTO):
+    def odd_days(dataset_id: str, method: str = service.AUTO, item: str | None = None):
         try:
-            return service.alerts(analyzed(dataset_id), method)
+            return service.alerts(analyzed(dataset_id), method, item=item)
         except KeyError as err:
             raise HTTPException(422, "Unknown method.") from err
+
+    @api.get("/datasets/{dataset_id}/dashboard")
+    def dashboard(dataset_id: str, method: str = service.AUTO):
+        try:
+            return service.dashboard(analyzed(dataset_id), method)
+        except KeyError as err:
+            raise HTTPException(422, "Unknown method.") from err
+
+    @api.get("/datasets/{dataset_id}/total")
+    def total(dataset_id: str, method: str = service.AUTO, level: float = 0.8):
+        try:
+            return service.total_next(analyzed(dataset_id), method, level)
+        except (KeyError, ValueError) as err:
+            raise HTTPException(422, str(err.args[0] if err.args else err)) from err
 
     app.include_router(api)
     if serve_web and WEB_DIST.exists():

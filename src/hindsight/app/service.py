@@ -80,6 +80,7 @@ class Analysis:
     forecasters: dict = field(default_factory=dict)
     rows: list[dict] = field(default_factory=list)
     reference: str = REFERENCE
+    totals: dict = field(default_factory=dict)  # method -> (replay of all items added together, its ranges by level), built on first use
 
     @property
     def n_real(self) -> int:
@@ -101,7 +102,7 @@ def _with_pending(replay: Replay, final: np.ndarray, n_days: int) -> Replay:
                   np.concatenate([replay.actuals, np.full((1,) + f.shape, np.nan)]), replay.dates, replay.ids)
 
 
-CACHE_VERSION = 1  # bump when the research code changes what an analysis contains
+CACHE_VERSION = 2  # bump when the research code changes what an analysis contains
 
 
 def analysis_key(data: SalesData, settings: Settings) -> str:
@@ -304,11 +305,66 @@ def next_view(a: Analysis, series: str | int | None = None, method: str = AUTO, 
     return out
 
 
-def alerts(a: Analysis, method: str = AUTO, last_days: int = 365) -> dict:
+def _total(a: Analysis, method: str) -> tuple[Replay, dict[float, IntervalReplay]]:
+    """All items added together as one series, with its own honest ranges (the sum of item ranges would not be a valid range)."""
+    if method not in a.totals:
+        r = a.replays[method]
+        summed = Replay(r.method, r.horizon, r.origins, r.forecasts.sum(axis=1, keepdims=True), r.actuals.sum(axis=1, keepdims=True), r.dates, ["All items"])
+        values = np.asarray(a.data.values, dtype=float).sum(axis=0, keepdims=True)
+        a.totals[method] = (summed, {lv: conformal_intervals(summed, values, level=lv, min_residuals=60) for lv in LEVELS})
+    return a.totals[method]
+
+
+def total_next(a: Analysis, method: str = AUTO, level: float = 0.8, history_days: int = 90) -> dict:
+    """The forecast for all items together, in the same shape as `next_view`."""
+    if method not in a.replays:
+        raise KeyError(f"Unknown method {method!r}")
+    if level not in LEVELS:
+        raise ValueError("level must be 0.8 or 0.9")
+    d = a.data
+    r, ranges = _total(a, method)
+    ir = ranges[level]
+    future = pd.date_range(d.dates[-1] + pd.Timedelta(days=1), periods=a.settings.horizon)
+    total = np.asarray(d.values, dtype=float).sum(axis=0)
+    return {"item": "All items", "method": method, "method_in_use": a.chosen[-1] if method == AUTO else method, "level": level, "last_day": str(d.dates[-1].date()),
+            "history": {"dates": [str(x.date()) for x in d.dates[-history_days:]], "actual": _round(total[-history_days:])},
+            "dates": [str(x.date()) for x in future], "forecast": _round(r.forecasts[-1, 0]), "low": _round(ir.lower[-1, 0]), "high": _round(ir.upper[-1, 0]),
+            "range_note": None if np.isfinite(ir.lower[-1, 0]).any() else "There is not enough track record yet to give a range.",
+            "total_next_7": float(np.nansum(r.forecasts[-1, 0, :7])), "reasons": None}
+
+
+def dashboard(a: Analysis, method: str = AUTO) -> dict:
+    """The front page: one line per item (what it sold, what is forecast, whether anything looked odd) and the headline trust numbers."""
+    if method not in a.replays:
+        raise KeyError(f"Unknown method {method!r}")
+    d = a.data
+    values = np.asarray(d.values, dtype=float)
+    r = a.replays[method]
+    odd = find_odd_days(a.ranges[(method, ALERT_LEVEL)], values)
+    recent = odd[odd.date >= d.dates[max(0, d.n_days - 30)]]
+    per = {p["series"]: p for p in scorecard(a)["per_series"]}
+    items = []
+    for i, sid in enumerate(d.ids):
+        last7, next7 = float(values[i, -7:].sum()), float(r.forecasts[-1, i, :7].sum())
+        items.append({"id": sid, "last_7": last7, "next_7": next7, "change": None if last7 <= 0 else next7 / last7 - 1,
+                      "unusual_30d": int((recent.series == sid).sum()), "reference_wape": per[sid]["reference_wape"], "best_wape": per[sid]["best_wape"],
+                      "coverage_80": per[sid]["coverage_80"], "average_per_day": float(values[i].mean())})
+    row = next(x for x in a.rows if x["method"] == method)
+    tot = values.sum(axis=0)
+    return {"method": method, "method_in_use": a.chosen[-1] if method == AUTO else method, "horizon": a.settings.horizon, "last_day": str(d.dates[-1].date()),
+            "totals": {"last_7": float(tot[-7:].sum()), "previous_7": float(tot[-14:-7].sum()), "next_7": float(np.nansum(r.forecasts[-1, :, :7]))},
+            "trust": {"coverage_80": row["coverage_80"], "wape": row["wape"], "reference_wape": next(x for x in a.rows if x["is_reference"])["wape"], "n_dates": int(a.in_window.sum())},
+            "verdict": verdict(a), "unusual_30d": int(len(recent)), "items": items,
+            "recent_unusual": [{"item": x.series, "date": str(x.date.date()), "actual": x.actual, "expected": x.expected, "direction": x.direction} for x in recent.head(6).itertuples()]}
+
+
+def alerts(a: Analysis, method: str = AUTO, last_days: int = 365, item: str | None = None) -> dict:
     ir = a.ranges[(method, ALERT_LEVEL)]
     values = np.asarray(a.data.values, dtype=float)
     odd = find_odd_days(ir, values)
     odd = odd[odd.date >= a.data.dates[max(0, a.data.n_days - last_days)]]
+    if item is not None:
+        odd = odd[odd.series == item]
     rows = [{"item": r.series, "date": str(r.date.date()), "actual": r.actual, "expected": r.expected, "low": r.low, "high": r.high, "direction": r.direction,
              "deviation_pct": r.deviation_pct} for r in odd.head(50).itertuples()]
     return {"level": ALERT_LEVEL, "method": method, "count": int(len(odd)), "items": rows,

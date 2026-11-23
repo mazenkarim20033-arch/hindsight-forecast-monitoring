@@ -1,4 +1,4 @@
-import type { Alerts, AnalysisSettings, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
+import type { Alerts, AnalysisSettings, Dashboard, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code = "", public params: Record<string, unknown> = {}) {
@@ -61,5 +61,7 @@ export const api = {
   scorecard: (id: string, signal?: AbortSignal) => request<Scorecard>(`/datasets/${id}/scorecard`, undefined, undefined, signal),
   stage: (id: string, p: { item?: string; method?: string; level?: number }, signal?: AbortSignal) => request<Stage>(`/datasets/${id}/stage`, undefined, p, signal),
   next: (id: string, p: { item?: string; method?: string; level?: number; day?: number }, signal?: AbortSignal) => request<NextView>(`/datasets/${id}/next`, undefined, p, signal),
-  alerts: (id: string, p: { method?: string }, signal?: AbortSignal) => request<Alerts>(`/datasets/${id}/alerts`, undefined, p, signal),
+  alerts: (id: string, p: { method?: string; item?: string }, signal?: AbortSignal) => request<Alerts>(`/datasets/${id}/alerts`, undefined, p, signal),
+  dashboard: (id: string, p: { method?: string }, signal?: AbortSignal) => request<Dashboard>(`/datasets/${id}/dashboard`, undefined, p, signal),
+  total: (id: string, p: { method?: string; level?: number }, signal?: AbortSignal) => request<NextView>(`/datasets/${id}/total`, undefined, p, signal),
 };

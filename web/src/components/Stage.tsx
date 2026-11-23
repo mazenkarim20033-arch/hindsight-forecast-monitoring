@@ -86,14 +86,10 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
     <div ref={ref} className="stage-canvas" dir="ltr">
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} onClick={seek} className={onSeek ? "seekable" : undefined}>
         <defs>
-          <pattern id={`pleat-${uid}`} width="12" height="12" patternUnits="userSpaceOnUse">
-            <rect width="12" height="12" className="pleat-base" />
-            <rect width="5" height="12" className="pleat-light" />
+          <pattern id={`pleat-${uid}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="7" height="7" className="pleat-base" />
+            <rect width="1.2" height="7" className="pleat-light" />
           </pattern>
-          <linearGradient id={`fade-${uid}`} x1="0" x2="1">
-            <stop offset="0" stopColor="#0F1B45" stopOpacity="0.95" />
-            <stop offset="1" stopColor="#0F1B45" stopOpacity="0.8" />
-          </linearGradient>
         </defs>
 
         {ticks.map((t) => (
@@ -108,8 +104,7 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
 
         {cursor < end && (
           <g className="curtain-lift">
-            <rect x={curtainX} y={PAD.t - 14} width={W - curtainX} height={H - PAD.t - PAD.b + 14} fill={`url(#fade-${uid})`} />
-            <rect x={curtainX} y={PAD.t - 14} width={W - curtainX} height={H - PAD.t - PAD.b + 14} fill={`url(#pleat-${uid})`} opacity="0.55" />
+            <rect x={curtainX} y={PAD.t - 14} width={W - curtainX} height={H - PAD.t - PAD.b + 14} fill={`url(#pleat-${uid})`} />
             <line className="curtain-edge" x1={curtainX} x2={curtainX} y1={PAD.t - 14} y2={H - PAD.b} />
           </g>
         )}
