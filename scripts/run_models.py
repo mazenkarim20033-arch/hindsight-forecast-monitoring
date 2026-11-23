@@ -13,9 +13,9 @@ from hindsight.calendar_features import M5Events
 from hindsight.data.m5 import at_level, load_m5
 from hindsight.replay.baselines import BASELINES
 from hindsight.replay.engine import make_origins, run_replay
-from hindsight.replay.intervals import IntervalReplay, conformal_intervals, coverage, relative_width
-from hindsight.replay.metrics import bias, bootstrap_wape, paired_difference_ci, wape
+from hindsight.replay.metrics import wape
 from hindsight.replay.ml import GlobalLightGBM
+from hindsight.replay.scorecard import score
 from hindsight.replay.select import select_online
 from hindsight.replay.stats import ExponentialSmoothingForecaster
 
@@ -24,26 +24,6 @@ RAW = ROOT / "data" / "raw" / "extracted"
 HORIZON, STEP, MIN_TRAIN, SCORE_DAYS = 28, 5, 365, 730
 REFERENCE = "average of the same weekday, last 4 weeks"
 PLAN = [("total", True), ("state", True), ("store", True), ("store_category", False), ("store_department", False)]  # (level, also run exponential smoothing)
-
-
-def score(replay, values, in_window, reference=None):
-    r = replay.where(in_window)
-    row = {"method": replay.method, "wape": wape(r), "wape_ci95": list(bootstrap_wape(r, n_boot=400)), "wape_days_1_7": wape(r, slice(0, 7)),
-           "wape_days_8_28": wape(r, slice(7, 28)), "bias": bias(r)}
-    for level in (0.8, 0.9):
-        ir = conformal_intervals(replay, values, level=level)
-        w = IntervalReplay(r, level, ir.lower[in_window], ir.upper[in_window], ir.scale[in_window])
-        row[f"coverage_{int(level * 100)}"] = coverage(w)
-        row[f"width_{int(level * 100)}"] = relative_width(w)
-        row[f"share_with_range_{int(level * 100)}"] = float(w.available().any(axis=(1, 2)).mean())
-    if reference is not None:
-        ref = reference.where(in_window)
-        per_m = np.abs(r.forecasts - r.actuals).sum(axis=(1, 2))
-        per_r = np.abs(ref.forecasts - ref.actuals).sum(axis=(1, 2))
-        row["win_rate_vs_reference"] = float((per_m < per_r).mean())
-        diff, lo, hi = paired_difference_ci(r, ref, n_boot=400)
-        row["gain_vs_reference"], row["gain_ci95"] = diff, [lo, hi]
-    return row
 
 
 def main() -> None:

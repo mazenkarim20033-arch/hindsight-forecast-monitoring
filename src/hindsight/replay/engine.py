@@ -3,6 +3,7 @@
 An *origin* is the index of the last day the forecaster is allowed to see. The history handed to a forecaster is a
 copy of the first origin+1 days, so nothing after the origin can reach it."""
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -44,7 +45,8 @@ def make_origins(n_days: int, horizon: int, min_train: int = 365, step: int = 7,
     return np.arange(last, first - 1, -step)[::-1]
 
 
-def run_replay(data: SalesData, forecaster: Forecaster, horizon: int, origins: np.ndarray) -> Replay:
+def run_replay(data: SalesData, forecaster: Forecaster, horizon: int, origins: np.ndarray, progress: Callable[[int, int], None] | None = None) -> Replay:
+    """`progress(done, total)` is called after each replay date, so a caller can show a progress bar."""
     values = np.asarray(data.values, dtype=float)
     forecasts = np.empty((len(origins), data.n_series, horizon))
     actuals = np.empty_like(forecasts)
@@ -59,4 +61,6 @@ def run_replay(data: SalesData, forecaster: Forecaster, horizon: int, origins: n
             raise ValueError(f"{forecaster.name}: forecast contains missing or infinite values")
         forecasts[i] = np.maximum(out, 0.0)  # sales cannot be negative
         actuals[i] = values[:, t + 1 : t + 1 + horizon]
+        if progress:
+            progress(i + 1, len(origins))
     return Replay(forecaster.name, horizon, np.asarray(origins), forecasts, actuals, data.dates, list(data.ids))
