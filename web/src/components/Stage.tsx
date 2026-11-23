@@ -62,7 +62,11 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
 
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * ymax);
   const months: { i: number; text: string }[] = [];
-  for (let i = start; i <= end; i++) if (dates[i].endsWith("-01") || i === start) months.push({ i, text: monthYear(dates[i]) });
+  for (let i = start; i <= end; i++) {
+    const firstOfMonth = dates[i].endsWith("-01");
+    const roomAtStart = i === start && !dates.slice(i + 1, i + 12).some((d) => d.endsWith("-01"));  // a month mark right next to the left edge would overlap
+    if (firstOfMonth || roomAtStart) months.push({ i, text: monthYear(dates[i]) });
+  }
   const curtainX = Math.min(x(cursor) + step / 2, W - PAD.r);
   const revealedFrom = fan ? Math.max(fan.origin, start) : start;
 
@@ -123,12 +127,12 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
           <text className="curtain-text" x={W - PAD.r - 12} y={H - PAD.b - 14} textAnchor="end">{curtainText}</text>
         )}
 
-        <g>
+        {hits && <g>
           <text className="lane-label" x={PAD.l - 10} y={laneY - 2} textAnchor="end">held</text>
           <text className="lane-label" x={PAD.l - 10} y={laneY + 14} textAnchor="end">missed</text>
           <line className="lane" x1={PAD.l} x2={W - PAD.r} y1={laneY + 5} y2={laneY + 5} />
-          {hits && Array.from({ length: Math.max(0, Math.min(cursor, end) - start + 1) }, (_, k) => start + k).map((i) => {
-            const h = hits[i];
+          {Array.from({ length: Math.max(0, Math.min(cursor, end) - start + 1) }, (_, k) => start + k).map((i) => {
+            const h = hits?.[i];
             if (h == null) return null;
             const fresh = fan ? i > fan.origin : false;
             const cx = x(i);
@@ -136,14 +140,14 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
               ? <circle key={i} className={`hit${fresh ? " fresh" : ""}`} cx={cx} cy={laneY - 4} r={Math.min(2.6, Math.max(1.3, step * 0.42))} />
               : <path key={i} className={`miss${fresh ? " fresh" : ""}`} d={`M${cx - 2.4} ${laneY + 9}l4.8 4.8M${cx + 2.4} ${laneY + 9}l-4.8 4.8`} />;
           })}
-        </g>
+        </g>}
 
         <g>
           {months.map((m) => (
             <text key={`m${m.i}`} className="axis" x={x(m.i)} y={H - 8} textAnchor={m.i === start ? "start" : "middle"}>{m.text}</text>
           ))}
         </g>
-        <text className="axis-title" x={PAD.l - 10} y={14} textAnchor="start">units sold per day · max {num(ymax)}</text>
+        {W >= 560 && <text className="axis-title" x={PAD.l - 10} y={14} textAnchor="start">units sold per day · max {num(ymax)}</text>}
       </svg>
     </div>
   );

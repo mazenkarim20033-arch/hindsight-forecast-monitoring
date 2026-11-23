@@ -51,7 +51,7 @@ function Inner({ id }: { id: string }) {
             <section className="card" aria-labelledby="days-h">
               <h2 id="days-h">Day by day</h2>
               <p className="muted">Expect about <strong>{num(n.total_next_7)}</strong> units over the next 7 days.{n.range_note ? ` ${n.range_note}` : ""}</p>
-              <div className="scroll short">
+              <div className="scroll short" role="region" aria-label="Forecast for each day" tabIndex={0}>
                 <table>
                   <thead><tr><th scope="col">Day</th><th scope="col">Best guess</th><th scope="col">{pct(level)} range</th></tr></thead>
                   <tbody>
@@ -96,7 +96,7 @@ function Inner({ id }: { id: string }) {
 
 function Why({ n, horizon, day, setDay }: { n: NextView; horizon: number; day: number; setDay: (d: number) => void }) {
   const r = n.reasons;
-  const max = r ? Math.max(...r.items.map((i) => Math.abs(i.units)), 1) : 1;
+  const max = r ? Math.max(...r.items.slice(1).map((i) => Math.abs(i.units)), 1) : 1; // the typical-day base is far larger than the pushes, so it gets its own full bar
   return (
     <section className="card" aria-labelledby="why-h">
       <h2 id="why-h">Why this forecast</h2>
@@ -115,7 +115,7 @@ function Why({ n, horizon, day, setDay }: { n: NextView; horizon: number; day: n
             {r.items.map((it, i) => (
               <li key={it.reason} className={i === 0 ? "base" : it.units >= 0 ? "up" : "down"}>
                 <span className="r-name">{it.reason}</span>
-                <span className="r-track" aria-hidden="true"><span style={{ width: `${(Math.abs(it.units) / max) * 100}%` }} /></span>
+                <span className="r-track" aria-hidden="true"><span style={{ width: `${i === 0 ? 100 : (Math.abs(it.units) / max) * 100}%` }} /></span>
                 <span className="r-val">{i === 0 ? num(it.units) : `${it.units >= 0 ? "+" : "−"}${num(Math.abs(it.units))}`}</span>
               </li>
             ))}

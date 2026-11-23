@@ -298,7 +298,10 @@ tr.ref { background: var(--accent-soft); }
   .reasons li .r-track { grid-column: 1 / -1; grid-row: 2; }
   .verdict { grid-template-columns: 1fr; }
   .pick select { min-width: 0; width: 100%; }
-  .pickers { display: grid; }
+  .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pickers .pick:has(select:not(:only-of-type)), .pickers label.pick:nth-child(2) { grid-column: 1 / -1; order: -1; }
+  .page-head .lead { display: none; }
+  .legend { gap: 8px 14px; }
   .stage-date { font-size: 1.2rem; }
 }
 @media (prefers-reduced-motion: reduce) {

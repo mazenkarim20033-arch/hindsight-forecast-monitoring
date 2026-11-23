@@ -73,7 +73,7 @@ function Body({ sc }: { sc: ScorecardData }) {
 
       <section className="card table-card" aria-labelledby="det-h">
         <h2 id="det-h">All the numbers</h2>
-        <div className="scroll">
+        <div className="scroll" role="region" aria-label="Scorecard table" tabIndex={0}>
           <table>
             <thead>
               <tr>
@@ -96,7 +96,7 @@ function Body({ sc }: { sc: ScorecardData }) {
       {sc.per_series.length > 1 && (
         <section className="card table-card" aria-labelledby="items-h">
           <h2 id="items-h">By item</h2>
-          <div className="scroll">
+          <div className="scroll" role="region" aria-label="Scores by item" tabIndex={0}>
             <table>
               <thead><tr><th scope="col">Item</th><th scope="col">Simple rule miss</th><th scope="col">{methodLabel(sc.best_method, sc.best_method === sc.reference, false)}</th><th scope="col">Difference</th><th scope="col">80% range held</th></tr></thead>
               <tbody>
