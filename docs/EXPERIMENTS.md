@@ -34,5 +34,32 @@ Source of truth: `reports/*.md` (generated) and `experiments/runs/*.json`. Numbe
 - **A real bug.** The "same weekday average" baseline sliced its history wrongly when fewer than seven days existed. A test with short histories caught it, and it is fixed.
 - One of my own date tests used a setup that failed for a different reason than intended; corrected.
 
+## M2: models, ranges and selection (M5, US Walmart)
+Full tables: `reports/models_m5.md`; raw numbers: `experiments/runs/models-m5-*.json`; script: `scripts/run_models.py`. Replay dates every 5 days (310), scored on the last 730 days (141 dates), 28-day horizon, nothing tuned. Reference rule: average of the same weekday over the last 4 weeks.
+
+| Level | Reference rule WAPE | Gradient boosting WAPE | Gain (95% interval) | Win rate |
+|---|---|---|---|---|
+| total | 0.075 | 0.045 | +0.030 (+0.028 to +0.032) | 99% |
+| state | 0.087 | 0.059 | +0.028 (+0.025 to +0.030) | 99% |
+| store | 0.098 | 0.075 | +0.023 (+0.020 to +0.025) | 96% |
+| store x category | 0.117 | 0.094 | +0.023 (+0.021 to +0.026) | 99% |
+| store x department | 0.136 | 0.115 | +0.021 (+0.019 to +0.023) | 99% |
+
+### What this supports
+- On this US data, a global gradient-boosting model beats the best simple rule at every level, on nearly every replay date. The gain shrinks (in points) as series get smaller, but it holds.
+- Exponential smoothing is **worse** than the simple weekday rule at every level where it was run (about 0.5 points of WAPE), and it is by far the slowest (413 s at store level). It is kept as an honest comparison, not as a recommendation.
+- The ranges are honest: the 80% range covered 0.79 to 0.84 of days and the 90% range 0.89 to 0.93, across all methods and levels. A better forecaster gets narrower ranges at the same coverage (total: 0.15 wide with boosting versus 0.23 with the rule).
+- "Best method so far" chose gradient boosting on 100% of scored dates, so it matched boosting. With one clearly dominant method the selector adds nothing here; it is there for data where no single method dominates.
+
+### What it does not support
+- Nothing about Egyptian shops: this is US data with US events. The calendar for Egypt (Ramadan, Eids, Coptic Christmas, Sham el-Nessim, national days) is built and tested, but its benefit is **unproven on real data**. On M5, Islamic events showed ratios near 1.0.
+- `reports/synthetic_calendar_check.md` is SYNTHETIC data with a built-in Ramadan and Eid lift. The model with the calendar scored WAPE 0.067 on windows containing Ramadan versus 0.176 without. That shows the mechanism works when an effect exists, nothing more.
+- Gradient boosting was run with default settings and no tuning, so the gain is not an upper bound. No claim is made against methods not tested (for example deep-learning forecasters).
+- Item-level (single product at a store) series were not run in M2.
+
+### Things that went wrong
+- `hijri-converter` is deprecated; switched to `hijridate`. Hijri dates follow Umm al-Qura and can differ by a day from local moon sighting.
+- A test assumed one Ramadan per Gregorian year; 2030 has two. The test now checks the first run's length.
+
 ## First look at the data (`reports/eda_m5.md`)
 Holiday effects on total sales are large for some US events (Labor Day 1.26 times a normal day, Thanksgiving 0.72, Christmas 0.00 because stores close) and nil for others, so a holiday-aware model has something to learn on this data. Overall volume grew about 60% from 2011 to 2016, so a model must handle changing level.

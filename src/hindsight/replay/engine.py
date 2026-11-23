@@ -25,6 +25,10 @@ class Replay:
     def origin_dates(self) -> pd.DatetimeIndex:
         return self.dates[self.origins]
 
+    def where(self, mask: np.ndarray) -> "Replay":
+        """The same replay restricted to the replay dates where `mask` is true."""
+        return Replay(self.method, self.horizon, self.origins[mask], self.forecasts[mask], self.actuals[mask], self.dates, self.ids)
+
 
 def make_origins(n_days: int, horizon: int, min_train: int = 365, step: int = 7, last_days: int | None = None) -> np.ndarray:
     """Origins spaced `step` days apart. The last origin leaves exactly `horizon` known days after it; the first leaves
