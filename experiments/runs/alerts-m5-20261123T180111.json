@@ -1,0 +1,75 @@
+{
+  "n_injected": 60,
+  "levels": {
+    "0.95": {
+      "level": 0.95,
+      "injected_scored": 60,
+      "recall": 0.9333333333333333,
+      "recall_by_factor": {
+        "0.0": {
+          "n": 10,
+          "caught": 10
+        },
+        "0.5": {
+          "n": 10,
+          "caught": 10
+        },
+        "0.75": {
+          "n": 10,
+          "caught": 10
+        },
+        "1.3": {
+          "n": 10,
+          "caught": 6
+        },
+        "1.6": {
+          "n": 10,
+          "caught": 10
+        },
+        "2.2": {
+          "n": 10,
+          "caught": 10
+        }
+      },
+      "clean_days": 7240,
+      "false_alarm_rate": 0.04323204419889503,
+      "expected_false_alarm_rate": 0.050000000000000044,
+      "clean_data_flag_rate": 0.048493150684931506
+    },
+    "0.98": {
+      "level": 0.98,
+      "injected_scored": 60,
+      "recall": 0.8166666666666667,
+      "recall_by_factor": {
+        "0.0": {
+          "n": 10,
+          "caught": 10
+        },
+        "0.5": {
+          "n": 10,
+          "caught": 10
+        },
+        "0.75": {
+          "n": 10,
+          "caught": 6
+        },
+        "1.3": {
+          "n": 10,
+          "caught": 3
+        },
+        "1.6": {
+          "n": 10,
+          "caught": 10
+        },
+        "2.2": {
+          "n": 10,
+          "caught": 10
+        }
+      },
+      "clean_days": 7240,
+      "false_alarm_rate": 0.014502762430939226,
+      "expected_false_alarm_rate": 0.020000000000000018,
+      "clean_data_flag_rate": 0.01958904109589041
+    }
+  }
+}

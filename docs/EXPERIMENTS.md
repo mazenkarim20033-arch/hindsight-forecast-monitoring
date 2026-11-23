@@ -61,5 +61,26 @@ Full tables: `reports/models_m5.md`; raw numbers: `experiments/runs/models-m5-*.
 - `hijri-converter` is deprecated; switched to `hijridate`. Hijri dates follow Umm al-Qura and can differ by a day from local moon sighting.
 - A test assumed one Ramadan per Gregorian year; 2030 has two. The test now checks the first run's length.
 
+## M3: explanations and odd-day alerts (M5, US Walmart)
+Full report: `reports/alerts_m5.md`; script: `scripts/run_alerts.py`. Store level (10 stores), boosted forecaster, same replay as M2.
+
+### Explanations
+Each forecast is split into plain reasons (usual weekly pattern, recent change, time of year, holidays and events, how far ahead and how big) plus "a typical day at the recent level". They come from exact tree contributions (TreeSHAP built into LightGBM), so they add up to the forecast; a test checks the sums. A synthetic test with a built-in Ramadan lift checks that the "holidays and events" reason carries it inside Ramadan and is about zero outside. These are reasons the model leaned on, not causes: for example a Thanksgiving forecast of 26,548 units (actual 23,631) was explained as -3,672 from events, -4,654 from the weekly pattern and -3,966 from time of year.
+
+### Odd-day alerts
+A day is flagged when sales fall outside the range of the latest forecast made before it, so the alert only uses what was known at the time (a test changes later data and checks earlier alerts do not move). Recall was measured by injecting 60 known one-day changes into the real sales (synthetic by construction) and replaying again.
+
+| Range level | Injected days caught | Normal days flagged (untouched data) | Expected by chance |
+|---|---|---|---|
+| 95% | 93% | 4.8% | 5% |
+| 98% | 82% | 2.0% | 2% |
+
+- Closures, halvings and doublings were all caught (10 of 10 each). Subtle changes were not: +30% was caught 3 of 10 times at 98% and 6 of 10 at 95%; -25% was caught 6 of 10 times at 98%. A daily alert cannot see a change smaller than the normal day-to-day noise, and the app should say so.
+- The false-alarm rate matches the stated level, which supports the ranges being honest on real data. Flags on untouched days are not all errors: the biggest ones are real oddities in the data (a Texas store with 131 units on 2015-03-24, a Thanksgiving jump at TX_1).
+- 60 injected days is a small sample; per-size counts are 10 each, so read them as indicative.
+
+### What it does not support
+Alerts say a day was unusual given the forecast, not why. They do not detect slow drifts. Nothing here was tested on Egyptian data.
+
 ## First look at the data (`reports/eda_m5.md`)
 Holiday effects on total sales are large for some US events (Labor Day 1.26 times a normal day, Thanksgiving 0.72, Christmas 0.00 because stores close) and nil for others, so a holiday-aware model has something to learn on this data. Overall volume grew about 60% from 2011 to 2016, so a model must handle changing level.

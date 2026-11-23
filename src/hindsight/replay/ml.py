@@ -89,16 +89,33 @@ class GlobalLightGBM:
         self._model = lgb.LGBMRegressor(**self.params).fit(X, y, categorical_feature=cats)
         self._fit_last_day = n - 1
 
-    def forecast(self, history: np.ndarray, dates: pd.DatetimeIndex, horizon: int) -> np.ndarray:
+    def can_model(self, n_days: int, horizon: int) -> bool:
+        return n_days >= MIN_HISTORY and horizon <= self.max_horizon
+
+    def _design(self, history: np.ndarray, dates: pd.DatetimeIndex, horizon: int) -> tuple[pd.DataFrame, np.ndarray]:
+        """Refit if due, then build the model inputs for the next `horizon` days. Uses only `history`."""
         n = history.shape[1]
-        if n < MIN_HISTORY or horizon > self.max_horizon:
-            return self._fallback.forecast(history, dates, horizon)
         if self._model is None or n - 1 - self._fit_last_day >= self.refit_every:
             self.last_training_target_index = -1
             self._fit(history, dates)
         hs = np.arange(1, horizon + 1)
         feats = origin_features(history, hs)
         target_dates = pd.date_range(dates[-1] + pd.Timedelta(days=1), periods=horizon)
-        X = self._frame(feats, self._calendar_rows(target_dates))[self._columns]
+        return self._frame(feats, self._calendar_rows(target_dates))[self._columns], feats["_level"]
+
+    def forecast(self, history: np.ndarray, dates: pd.DatetimeIndex, horizon: int) -> np.ndarray:
+        if not self.can_model(history.shape[1], horizon):
+            return self._fallback.forecast(history, dates, horizon)
+        X, level = self._design(history, dates, horizon)
         ratio = self._model.predict(X).reshape(history.shape[0], horizon)
-        return np.maximum(ratio, 0) * feats["_level"][:, None]
+        return np.maximum(ratio, 0) * level[:, None]
+
+    def contributions(self, history: np.ndarray, dates: pd.DatetimeIndex, horizon: int) -> tuple[list[str], np.ndarray, np.ndarray]:
+        """Exact per-input contributions (TreeSHAP) to the forecast, in units of sales: (columns, array of shape
+        (n_series, horizon, n_columns + 1) whose last slot is the model's typical-day base value, level). Row sums equal the
+        unclipped forecast."""
+        if not self.can_model(history.shape[1], horizon):
+            raise ValueError("not enough history (or too long a horizon) for the boosted model, so there is nothing to explain")
+        X, level = self._design(history, dates, horizon)
+        raw = self._model.predict(X, pred_contrib=True).reshape(history.shape[0], horizon, -1)
+        return list(self._columns), raw * level[:, None, None], level

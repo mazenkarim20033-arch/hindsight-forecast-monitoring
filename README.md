@@ -2,7 +2,7 @@
 
 Upload your sales history, press play, and watch what a forecast would have said at every point in the past, against what really happened. Every replay date uses only the data known at that time, so you can see how far to trust the next forecast.
 
-**Status: Milestone 2 of 6 (models, ranges, selection).** There is no interface yet. Plan: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md); design direction: [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md); results so far: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
+**Status: Milestone 3 of 6 (explanations and odd-day alerts).** There is no interface yet. Plan: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md); design direction: [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md); results so far: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
 
 ## What exists
 - A validated sales data model (any daily series, aggregated by store, category and so on).
@@ -10,6 +10,7 @@ Upload your sales history, press play, and watch what a forecast would have said
 - A rolling-origin replay engine: at each past date it hands a forecaster only the earlier days, then reveals what happened. Tests change the future and check earlier forecasts do not move.
 - Four baseline forecasters and honest metrics (WAPE, bias, MASE, bootstrap intervals).
 - Results of the baselines on M5 at six levels, from the whole company down to single items.
+- Plain-language reasons for each forecast (exact tree contributions that add up to the number) and odd-day alerts, with measured catch and false-alarm rates on M5: injected closures and halvings were caught, subtle +30% days mostly were not.
 - A global gradient-boosting forecaster, exponential smoothing, an Egyptian calendar (Ramadan, Eids, Coptic Christmas, Sham el-Nessim, national days), honest ranges learned from the forecaster's own track record, and "best method so far" selection. On M5 boosting beats the best simple rule by 2 to 3 WAPE points at every level; the Egyptian calendar is only shown to work on labelled synthetic data.
 
 ## Setup
