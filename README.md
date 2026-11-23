@@ -1,0 +1,27 @@
+# Hindsight: honest forecast replay
+
+Upload your sales history, press play, and watch what a forecast would have said at every point in the past, against what really happened. Every replay date uses only the data known at that time, so you can see how far to trust the next forecast.
+
+**Status: Milestone 1 of 6 (data and replay engine).** There is no interface yet. Plan: [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md); design direction: [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md); results so far: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
+
+## What exists
+- A validated sales data model (any daily series, aggregated by store, category and so on).
+- A loader for the public M5 Walmart data.
+- A rolling-origin replay engine: at each past date it hands a forecaster only the earlier days, then reveals what happened. Tests change the future and check earlier forecasts do not move.
+- Four baseline forecasters and honest metrics (WAPE, bias, MASE, bootstrap intervals).
+- Results of the baselines on M5 at six levels, from the whole company down to single items.
+
+## Setup
+```bash
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+# download the M5 zip (48 MB, CC BY 4.0) from https://zenodo.org/records/12636070 and extract it into data/raw/extracted/
+python -m pytest -q
+python scripts/eda_m5.py
+python scripts/run_baselines.py
+```
+
+## Limits
+All results so far are on US retail data and use only trivial baselines. Nothing is claimed about Egyptian shops yet. See [docs/DATASET_CARD.md](docs/DATASET_CARD.md).
+
+Data: M5 Forecasting competition data (Walmart), via Zenodo, CC BY 4.0.

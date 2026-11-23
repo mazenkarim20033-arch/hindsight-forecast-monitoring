@@ -1,0 +1,410 @@
+{
+  "setup": {
+    "horizon": 28,
+    "step": 5,
+    "min_train_days": 365,
+    "replay_window_days": 730,
+    "n_origins": 141,
+    "first_origin": "2014-05-25",
+    "last_origin": "2016-04-24",
+    "origins_per_weekday": {
+      "Mon": 20,
+      "Tue": 20,
+      "Wed": 20,
+      "Thu": 20,
+      "Fri": 20,
+      "Sat": 20,
+      "Sun": 21
+    },
+    "hardware": {
+      "processor": "Intel64 Family 6 Model 94 Stepping 3, GenuineIntel",
+      "python": "3.12.9"
+    }
+  },
+  "levels": {
+    "total": {
+      "n_series": 1,
+      "share_zero_days": 0.0,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.1742856922154976,
+          "wape_ci95": [
+            0.16603228427525152,
+            0.1830556117616969
+          ],
+          "wape_days_1_7": 0.16921009077928825,
+          "wape_days_8_28": 0.17597015567330107,
+          "bias": -0.000549032406077787,
+          "mase": 2.1423495324242987
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.13365049808411206,
+          "wape_ci95": [
+            0.13095386284338423,
+            0.13604961853070338
+          ],
+          "wape_days_1_7": 0.13333372024521628,
+          "wape_days_8_28": 0.13375562861899906,
+          "bias": -0.007938927807643142,
+          "mase": 1.642854777343058
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.09601685818907889,
+          "wape_ci95": [
+            0.09011445928932564,
+            0.10223264031557913
+          ],
+          "wape_days_1_7": 0.09009289062142055,
+          "wape_days_8_28": 0.0979828728611028,
+          "bias": -0.005739600195583322,
+          "mase": 1.1802556402156126
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.07507358693322769,
+          "wape_ci95": [
+            0.07171174187097724,
+            0.07885748100131527
+          ],
+          "wape_days_1_7": 0.0735622571330507,
+          "wape_days_8_28": 0.07557515898396555,
+          "bias": -0.007938927807643133,
+          "mase": 0.9228173685361982
+        }
+      ],
+      "best": "average of the same weekday, last 4 weeks",
+      "best_vs_reference": {
+        "best": "average of the same weekday, last 4 weeks",
+        "reference": "same day last week",
+        "wape_gain": 0.02094327125585119,
+        "ci95": [
+          0.015408434677006522,
+          0.026286793685408955
+        ]
+      }
+    },
+    "state": {
+      "n_series": 3,
+      "share_zero_days": 0.0,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.18606761319225895,
+          "wape_ci95": [
+            0.17867583068056342,
+            0.19461246932875523
+          ],
+          "wape_days_1_7": 0.18072334060064213,
+          "wape_days_8_28": 0.1878412417961318,
+          "bias": -0.000549032406077787,
+          "mase": 1.7079361317489403
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.14211401605744078,
+          "wape_ci95": [
+            0.13929954008301312,
+            0.14463030349498018
+          ],
+          "wape_days_1_7": 0.14201300479417314,
+          "wape_days_8_28": 0.14214753913523548,
+          "bias": -0.007938927807643133,
+          "mase": 1.331957792527282
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.11056361649872458,
+          "wape_ci95": [
+            0.10475862086378815,
+            0.11636350760233391
+          ],
+          "wape_days_1_7": 0.10619845084947668,
+          "wape_days_8_28": 0.11201230432731586,
+          "bias": -0.005739600195583322,
+          "mase": 1.1366307125094368
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.08691694399195811,
+          "wape_ci95": [
+            0.08329250972880817,
+            0.09069066408402701
+          ],
+          "wape_days_1_7": 0.08484852524181866,
+          "wape_days_8_28": 0.0876033997438202,
+          "bias": -0.007938927807643133,
+          "mase": 0.932671010412538
+        }
+      ],
+      "best": "average of the same weekday, last 4 weeks",
+      "best_vs_reference": {
+        "best": "average of the same weekday, last 4 weeks",
+        "reference": "same day last week",
+        "wape_gain": 0.023646672506766466,
+        "ci95": [
+          0.018628703982078686,
+          0.02852822988658381
+        ]
+      }
+    },
+    "store": {
+      "n_series": 10,
+      "share_zero_days": 0.0012364760432766616,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.1987087580339511,
+          "wape_ci95": [
+            0.1915164357034763,
+            0.20651599542438845
+          ],
+          "wape_days_1_7": 0.19139007442985295,
+          "wape_days_8_28": 0.2011376436045123,
+          "bias": -0.000549032406077787,
+          "mase": 1.6573673382846719
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.1522351465531869,
+          "wape_ci95": [
+            0.14962019551889583,
+            0.15482062205975441
+          ],
+          "wape_days_1_7": 0.1518136901200593,
+          "wape_days_8_28": 0.15237501726005429,
+          "bias": -0.007938927807643131,
+          "mase": 1.2804930927713212
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.12312931820563618,
+          "wape_ci95": [
+            0.11724346411013878,
+            0.12914805673513208
+          ],
+          "wape_days_1_7": 0.11848174781947245,
+          "wape_days_8_28": 0.12467172900787385,
+          "bias": -0.005739600195583322,
+          "mase": 1.1028424079564116
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.09829103139958625,
+          "wape_ci95": [
+            0.09476228055569338,
+            0.10206376792195528
+          ],
+          "wape_days_1_7": 0.09555164473657769,
+          "wape_days_8_28": 0.0992001643937006,
+          "bias": -0.007938927807643133,
+          "mase": 0.9067073639152441
+        }
+      ],
+      "best": "average of the same weekday, last 4 weeks",
+      "best_vs_reference": {
+        "best": "average of the same weekday, last 4 weeks",
+        "reference": "same day last week",
+        "wape_gain": 0.02483828680604993,
+        "ci95": [
+          0.019806467004738367,
+          0.02996772928552953
+        ]
+      }
+    },
+    "store_category": {
+      "n_series": 30,
+      "share_zero_days": 0.002146659797355315,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.21727045309617857,
+          "wape_ci95": [
+            0.21038563913812622,
+            0.22456210228044854
+          ],
+          "wape_days_1_7": 0.20720240584807137,
+          "wape_days_8_28": 0.2206117827679467,
+          "bias": -0.000549032406077787,
+          "mase": 1.5308819757738168
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.16538255488755826,
+          "wape_ci95": [
+            0.16263934749224807,
+            0.16801106188319023
+          ],
+          "wape_days_1_7": 0.1644807054348418,
+          "wape_days_8_28": 0.16568185586038553,
+          "bias": -0.007938927807643133,
+          "mase": 1.1514982755704728
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.1464599407269328,
+          "wape_ci95": [
+            0.14030048384229843,
+            0.15258550563205575
+          ],
+          "wape_days_1_7": 0.14181058608518907,
+          "wape_days_8_28": 0.14800294367836925,
+          "bias": -0.005739600195583322,
+          "mase": 1.104523279952565
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.11726187527851786,
+          "wape_ci95": [
+            0.11375636734088394,
+            0.12094736355593828
+          ],
+          "wape_days_1_7": 0.11426444689099492,
+          "wape_days_8_28": 0.11825664578002831,
+          "bias": -0.007938927807643133,
+          "mase": 0.9007111121687751
+        }
+      ],
+      "best": "average of the same weekday, last 4 weeks",
+      "best_vs_reference": {
+        "best": "average of the same weekday, last 4 weeks",
+        "reference": "same day last week",
+        "wape_gain": 0.029198065448414932,
+        "ci95": [
+          0.02420548951592813,
+          0.03402159125347551
+        ]
+      }
+    },
+    "store_department": {
+      "n_series": 70,
+      "share_zero_days": 0.002671671450651358,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.23528399035858102,
+          "wape_ci95": [
+            0.22842747616459758,
+            0.24267553193742086
+          ],
+          "wape_days_1_7": 0.22325491481118975,
+          "wape_days_8_28": 0.239276135613759,
+          "bias": -0.000549032406077787,
+          "mase": 1.5341932294389091
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.17991887419454689,
+          "wape_ci95": [
+            0.17699101493302824,
+            0.18287327105184695
+          ],
+          "wape_days_1_7": 0.17810089045361624,
+          "wape_days_8_28": 0.180522216915004,
+          "bias": -0.007938927807643133,
+          "mase": 1.2054985913735623
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.16775780473082802,
+          "wape_ci95": [
+            0.16123310722385,
+            0.17399843604475507
+          ],
+          "wape_days_1_7": 0.16118946294704065,
+          "wape_days_8_28": 0.16993767087126643,
+          "bias": -0.005739600195583322,
+          "mase": 1.2047446593102928
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.13578997811661717,
+          "wape_ci95": [
+            0.1318198464672095,
+            0.13966692357412303
+          ],
+          "wape_days_1_7": 0.1314712361668157,
+          "wape_days_8_28": 0.13722325909613325,
+          "bias": -0.007938927807643133,
+          "mase": 1.008235593614965
+        }
+      ],
+      "best": "average of the same weekday, last 4 weeks",
+      "best_vs_reference": {
+        "best": "average of the same weekday, last 4 weeks",
+        "reference": "same day last week",
+        "wape_gain": 0.031967826614210854,
+        "ci95": [
+          0.027263075571257435,
+          0.036672501133360826
+        ]
+      }
+    },
+    "item_store": {
+      "n_series": 1000,
+      "share_zero_days": 0.6803003606388459,
+      "methods": [
+        {
+          "method": "last day",
+          "wape": 0.97151569299502,
+          "wape_ci95": [
+            0.9599504980608748,
+            0.9817545187654225
+          ],
+          "wape_days_1_7": 0.9232706453446966,
+          "wape_days_8_28": 0.987558153482776,
+          "bias": -0.00019521639716544106,
+          "mase": 1.172862582344123
+        },
+        {
+          "method": "average of the last 28 days",
+          "wape": 0.820626910264124,
+          "wape_ci95": [
+            0.8146711254137363,
+            0.8272101235995519
+          ],
+          "wape_days_1_7": 0.7878182035858478,
+          "wape_days_8_28": 0.8315364731348136,
+          "bias": -0.002637529530169367,
+          "mase": 1.0246508535360213
+        },
+        {
+          "method": "same day last week",
+          "wape": 0.956125220145489,
+          "wape_ci95": [
+            0.9492827329501425,
+            0.9633174714530606
+          ],
+          "wape_days_1_7": 0.9151553654537113,
+          "wape_days_8_28": 0.9697485308704714,
+          "bias": -0.0022443561168717986,
+          "mase": 1.1665311180485753
+        },
+        {
+          "method": "average of the same weekday, last 4 weeks",
+          "wape": 0.8487025488178024,
+          "wape_ci95": [
+            0.8427154071886264,
+            0.8554501322193169
+          ],
+          "wape_days_1_7": 0.8150658574478349,
+          "wape_days_8_28": 0.8598874334540999,
+          "bias": -0.002637529530169366,
+          "mase": 1.0565621557459415
+        }
+      ],
+      "best": "average of the last 28 days",
+      "best_vs_reference": {
+        "best": "average of the last 28 days",
+        "reference": "same day last week",
+        "wape_gain": 0.13549830988136483,
+        "ci95": [
+          0.1315758451326061,
+          0.1392352694139103
+        ]
+      }
+    }
+  }
+}
