@@ -5,7 +5,9 @@ export interface Problem { message: string; code?: string; params?: Record<strin
 export interface AsyncState<T> { data: T | null; error: Problem | null; loading: boolean }
 
 export function toProblem(err: unknown): Problem {
-  return err instanceof ApiError ? { message: err.message, code: err.code, params: err.params } : { message: String(err) };
+  if (err instanceof ApiError) return { message: err.message, code: err.code, params: err.params };
+  if (err instanceof Error && "status" in err) return { message: err.message }; // a recorded-demo refusal: its message is already plain language
+  return { message: String(err) };
 }
 
 /** Run `load` whenever `deps` change; a newer call cancels the older one so answers never arrive out of order. */

@@ -289,6 +289,7 @@ export const en = {
   "data.load.text": "The file is read by the Hindsight server on this computer and kept in memory only.",
   "data.sample.button": "Use the sample data",
   "data.run": "Run the analysis",
+  "data.demo": "This public demo runs on the bundled sample only. To analyse your own file, run Hindsight on your computer; the README explains how.",
   "data.running": "Analysing",
   "data.method.note": "Everything here comes from the same code the research used.",
   "odd.note": "An alert means sales fell outside the range the forecast gave for that day (about 1 normal day in 50 will do so by chance). Small changes cannot be seen this way.",

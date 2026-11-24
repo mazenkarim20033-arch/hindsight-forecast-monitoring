@@ -1,4 +1,5 @@
 import { HashRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { IS_SNAPSHOT } from "./api/client";
 import { ErrorBox } from "./components/States";
 import { LangProvider, useLang } from "./i18n";
 import Dashboard from "./pages/Dashboard";
@@ -34,7 +35,7 @@ function Shell() {
       <a className="skip" href="#main">{t("app.skip")}</a>
       <section className="banner" aria-label="Data notice">
         {dataset && !dataset.is_sample ? t("banner.own", { name: dataset.filename }) : t("banner.sample")}
-        {import.meta.env.VITE_SNAPSHOT === "1" && ` ${t("banner.snapshot")}`}
+        {IS_SNAPSHOT && ` ${t("banner.snapshot")}`}
       </section>
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label={t("app.brand")}>Hindsight<small>{t("brand.tag")}</small></NavLink>

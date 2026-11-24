@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { api, IS_SNAPSHOT } from "../api/client";
 import type { AnalysisSettings, DatasetSummary } from "../api/types";
 import { useMethodLabel } from "../components/Pickers";
 import { ErrorBox } from "../components/States";
@@ -64,8 +64,12 @@ export default function Data() {
 
       <section className="section" aria-labelledby="load-h">
         <div className="section-head"><h2 id="load-h">{t("data.load.title")}</h2></div>
-        <Drop busy={busy || running} onFile={(f) => receive(() => api.upload(f))} />
-        <p className="fine">{t("data.load.text")}</p>
+        {IS_SNAPSHOT ? <p>{t("data.demo")}</p> : (
+          <>
+            <Drop busy={busy || running} onFile={(f) => receive(() => api.upload(f))} />
+            <p className="fine">{t("data.load.text")}</p>
+          </>
+        )}
         {error && <div className="alert-box" role="alert"><strong>{t("start.badfile")}</strong> {say(error, "problem")}</div>}
       </section>
 

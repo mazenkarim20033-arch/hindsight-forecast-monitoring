@@ -1,3 +1,4 @@
+import { snapshotApi } from "./snapshot";
 import type { Alerts, AnalysisSettings, Dashboard, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
 
 export class ApiError extends Error {
@@ -45,7 +46,7 @@ async function request<T>(path: string, init?: RequestInit, params?: Params, sig
 
 const json = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export const api = {
+const liveApi = {
   upload: (file: File) => {
     const form = new FormData();
     form.append("file", file);
@@ -65,3 +66,7 @@ export const api = {
   dashboard: (id: string, p: { method?: string }, signal?: AbortSignal) => request<Dashboard>(`/datasets/${id}/dashboard`, undefined, p, signal),
   total: (id: string, p: { method?: string; level?: number }, signal?: AbortSignal) => request<NextView>(`/datasets/${id}/total`, undefined, p, signal),
 };
+
+/** The public demo plays back recorded answers; everywhere else the app talks to the local server. */
+export const IS_SNAPSHOT = import.meta.env.VITE_SNAPSHOT === "1";
+export const api: typeof liveApi = IS_SNAPSHOT ? (snapshotApi as unknown as typeof liveApi) : liveApi;
