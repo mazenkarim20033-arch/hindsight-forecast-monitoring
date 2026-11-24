@@ -1,7 +1,8 @@
 import { useState, type DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, IS_SNAPSHOT } from "../api/client";
+import { api, IS_SNAPSHOT, type RemapBody } from "../api/client";
 import type { AnalysisSettings, DatasetSummary } from "../api/types";
+import { OnboardingChoices, QualityCard } from "../components/Onboarding";
 import { useMethodLabel } from "../components/Pickers";
 import { ErrorBox } from "../components/States";
 import { toProblem, type Problem } from "../hooks/useAsync";
@@ -133,9 +134,10 @@ function Check(p: {
   const [err, setErr] = useState<string | null>(null);
   const det = d.detection;
   const cols = det.columns.map((c) => c.name);
-  const remap = async (m: { date: string; value?: string | null; item?: string | null; item_columns?: string[] | null }) => {
+  const remap = async (m: RemapBody) => {
     setErr(null);
-    try { p.onChange(await api.remap(d.id, m)); } catch (e) { setErr(say(toProblem(e), "problem")); }
+    const keepKey = (det.item_cols ?? []).length > 0 && !m.item && !m.item_cols && !m.adapter && !m.item_columns; // changing another field keeps a composite item key
+    try { p.onChange(await api.remap(d.id, m.adapter ? m : { date: det.date, duplicates: det.duplicates ?? "sum", business: det.business ?? {}, ...(keepKey ? { item_cols: det.item_cols, value: det.value } : {}), ...m })); } catch (e) { setErr(say(toProblem(e), "problem")); }
   };
   const tooLittle = d.plan.tier === "too_little";
   const warnings = d.report.notes.filter((x) => x.level === "warning");
@@ -162,6 +164,7 @@ function Check(p: {
               <button className="btn link" onClick={() => remap({ date: det.date, value: det.item_columns[0], item: null })}>{t("check.wide.switch", { name: det.item_columns[0] })}</button>
             </>
           )}
+          <OnboardingChoices d={d} remap={remap} onChange={p.onChange} setErr={setErr} />
           <table className="mini" aria-label={t("check.table.label")}>
             <thead><tr><th scope="col">{t("check.table.column")}</th><th scope="col">{t("check.table.examples")}</th></tr></thead>
             <tbody>{det.columns.slice(0, 8).map((c) => <tr key={c.name}><th scope="row">{c.name}</th><td dir="auto">{c.examples.join(" · ")}</td></tr>)}</tbody>
@@ -174,6 +177,7 @@ function Check(p: {
             {warnings.length > 0 && <ul className="notes warn">{warnings.map((x, i) => <li key={i}><span className="tag">{t("check.tag")}</span> {say(x, "note")}</li>)}</ul>}
             {infos.length > 0 && <ul className="notes">{infos.map((x, i) => <li key={i}>{say(x, "note")}</li>)}</ul>}
           </div>
+          <QualityCard findings={d.quality ?? []} />
           <div className={`card tier ${d.plan.tier}`}>
             <h3>{t(`check.tier.${d.plan.tier}`)}</h3>
             <p>{say({ code: d.plan.tier, params: d.plan.params, text: d.plan.text }, "plan")}</p>

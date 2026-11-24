@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { DashItem } from "../api/types";
 import { ForecastChart } from "../components/ForecastChart";
+import { HealthSection } from "../components/HealthNote";
 import { Pickers, useMethodLabel } from "../components/Pickers";
 import { ErrorBox, Loading } from "../components/States";
 import { useVerdictText } from "../components/verdict";
@@ -92,6 +93,8 @@ export default function Dashboard() {
                 </ul>
               )}
             </section>
+
+            <HealthSection />
 
             <section className="section" aria-labelledby="trust-h">
               <div className="section-head"><h2 id="trust-h">{t("dash.trust.title")}</h2><span className="chip evaluation">{t("chip.evaluation")}</span></div>

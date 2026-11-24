@@ -67,7 +67,7 @@ export default function Planner() {
 }
 
 /** A number with a bar. The bar's length is the value; shortage and leftover differ in position and label, not just colour. */
-function Meter({ value, tone, digits = 0 }: { value: number; tone: "short" | "left"; digits?: number }) {
+export function Meter({ value, tone, digits = 0 }: { value: number; tone: "short" | "left"; digits?: number }) {
   return (
     <span className={`meter ${tone}`}>
       <span className="meter-track" aria-hidden="true" dir="ltr"><span style={{ width: `${Math.min(100, value * 100)}%` }} /></span>

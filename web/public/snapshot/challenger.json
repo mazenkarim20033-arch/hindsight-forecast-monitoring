@@ -1,0 +1,1 @@
+{"method":"best method so far","verdict":"inconclusive","deployed":false,"n_dates":12,"from":"2016-02-29","to":"2016-05-22","gain":0.0004,"gain_ci95":[-0.0033,0.0035],"current":{"wape":0.0741,"bias":-0.0072},"challenger":{"wape":0.0737,"bias":-0.0042},"config":{"train_days":365,"refit_every":14},"notes":["challenger_never_deployed","challenger_small_sample","challenger_overlap"]}

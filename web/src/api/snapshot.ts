@@ -1,4 +1,4 @@
-import type { Alerts, Dashboard, DatasetSummary, Effects, Job, NextView, Overview, Scorecard, Stage, StockPlan } from "./types";
+import type { Alerts, Challenger, Health, Dashboard, DatasetSummary, Effects, Inventory, Job, NextView, Overview, ScenarioRun, Scorecard, Stage, StockPlan } from "./types";
 
 /** The public demo has no server: it plays back answers the real code recorded for the bundled sample (see scripts/export_snapshot.py). */
 const BASE = `${import.meta.env.BASE_URL}snapshot/`;
@@ -28,6 +28,7 @@ export const snapshotApi = {
   sample: (): Promise<DatasetSummary> => load("dataset.json"),
   dataset: (_id: string, signal?: AbortSignal): Promise<DatasetSummary> => load("dataset.json", signal),
   remap: async (): Promise<DatasetSummary> => { throw new SnapshotError(0, "Loading your own file is not available in the public demo."); },
+  saveAdapter: async (): Promise<DatasetSummary> => { throw new SnapshotError(0, "Loading your own file is not available in the public demo."); },
   analyze: async (): Promise<Job> => done,
   job: async (): Promise<Job> => done,
   overview: (_id: string, signal?: AbortSignal): Promise<Overview> => load("overview.json", signal),
@@ -44,4 +45,15 @@ export const snapshotApi = {
   total: (_id: string, p: { method?: string; level?: number }, signal?: AbortSignal): Promise<NextView> => load(`total/${slug(p.method ?? "")}__${level(p.level)}.json`, signal),
   planner: (_id: string, p: { item?: string; method?: string }, signal?: AbortSignal): Promise<StockPlan> => load(`planner/${slug(p.method ?? "")}__${p.item || "all"}.json`, signal),
   effects: (_id: string, signal?: AbortSignal): Promise<Effects> => load("effects.json", signal),
+  /** One recorded example: the demo cannot recompute with other numbers. */
+  inventory: (_id: string, _body: unknown, signal?: AbortSignal): Promise<Inventory> => load("inventory.json", signal),
+  /** Recorded for the default method only. */
+  health: (_id: string, _method: string, signal?: AbortSignal): Promise<Health> => load("health.json", signal),
+  challenger: (_id: string, _method: string, signal?: AbortSignal): Promise<Challenger> => load("challenger.json", signal),
+  auditRecord: async (): Promise<never> => { throw new SnapshotError(0, "The decision log is kept on your own computer and is not part of the public demo."); },
+  auditEvents: async (): Promise<never> => { throw new SnapshotError(0, "The decision log is kept on your own computer and is not part of the public demo."); },
+  auditReview: async (): Promise<never> => { throw new SnapshotError(0, "The decision log is kept on your own computer and is not part of the public demo."); },
+  auditOutcome: async (): Promise<never> => { throw new SnapshotError(0, "The decision log is kept on your own computer and is not part of the public demo."); },
+  auditExport: async (): Promise<never> => { throw new SnapshotError(0, "The decision log is kept on your own computer and is not part of the public demo."); },
+  scenarios: (_id: string, _body: unknown, signal?: AbortSignal): Promise<ScenarioRun> => load("scenarios.json", signal),
 };

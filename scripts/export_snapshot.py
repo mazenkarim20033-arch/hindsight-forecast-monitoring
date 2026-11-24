@@ -7,9 +7,11 @@ import re
 import shutil
 from pathlib import Path
 
-from hindsight.app import service
+from hindsight.app import health_service, inventory_service, scenario_service, service
 from hindsight.app.api import CACHE_DIR, SAMPLE_DIR, _describe, load_sample
 from hindsight.data.importer import read_sales_file
+from hindsight.inventory.inputs import InventorySettings, StockLevel
+from hindsight.scenarios.apply import Scenario
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "web" / "public" / "snapshot"
@@ -37,6 +39,20 @@ def main() -> None:
                                  "n_series": d.n_series, "n_days": d.n_days, "first_date": str(d.dates[0].date()), "last_date": str(d.dates[-1].date()),
                                  "has_events": True, "analyzed": True, "plan": {"tier": plan.tier, "text": plan.explanation, "params": plan.params}})
     write(OUT / "effects.json", service.holiday_effects(a.data))
+    # One recorded optimizer example. The numbers are the same illustration the app's "Fill with an illustrative example" button uses
+    # (web/src/pages/Inventory.tsx): invented prices, costs and stock, shown as such. The sample file has none of them.
+    stock = {sid: StockLevel(on_hand=float(int(float(d.values[i].mean()) * 5 + 0.5)), on_order=0.0) for i, sid in enumerate(d.ids)}
+    example = InventorySettings(lead_time_days=3, review_days=7, price=10, unit_cost=6, holding_cost_per_day=0.05)
+    write(OUT / "inventory.json", inventory_service.recommend(a, example, stock))
+    # Recorded what-if examples on the same illustration. The sizes (+20%, 5 days, 30%, -10% price, elasticity -1.5) are example values chosen here,
+    # not estimates; the screen says so.
+    write(OUT / "scenarios.json", scenario_service.run(a, example, stock, service.AUTO, [
+        Scenario(name="Demand up 20%", demand_change_pct=20), Scenario(name="Supplier 5 days late", supplier_delay_days=5),
+        Scenario(name="Stock 30% lower", stock_reduction_pct=30), Scenario(name="Price down 10% (example elasticity -1.5)", price_change_pct=-10, price_elasticity=-1.5),
+        Scenario(name="Promotion: +40% for 3 days", promo_uplift_pct=40, promo_days=3)]))
+    # Health and one challenger test, recorded for the default method ("best method so far"), as the live API would answer.
+    write(OUT / "health.json", health_service.health(a, service.AUTO))
+    write(OUT / "challenger.json", health_service.challenger(a, service.AUTO))
     ov = service.overview(a)
     ov["methods"] = [m for m in ov["methods"] if m["name"] in METHODS]
     write(OUT / "overview.json", ov)

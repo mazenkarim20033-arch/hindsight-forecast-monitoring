@@ -8,6 +8,9 @@ import Data from "./pages/Data";
 import ItemDetail from "./pages/ItemDetail";
 import Items from "./pages/Items";
 import Effects from "./pages/Effects";
+import Audit from "./pages/Audit";
+import Health from "./pages/Health";
+import Inventory from "./pages/Inventory";
 import Planner from "./pages/Planner";
 import Replay from "./pages/Replay";
 import Scorecard from "./pages/Scorecard";
@@ -45,13 +48,27 @@ function Shell() {
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label={t("app.brand")}>Hindsight<small>{t("brand.tag")}</small></NavLink>
         <nav className="nav" aria-label={t("nav.main")}>
-          <NavLink to="/" end>{t("nav.dashboard")}</NavLink>
-          <NavLink to="/items">{t("nav.items")}</NavLink>
-          <NavLink to="/planner">{t("nav.planner")}</NavLink>
-          <NavLink to="/effects">{t("nav.effects")}</NavLink>
-          <NavLink to="/lab">{t("nav.lab")}</NavLink>
-          <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
-          <NavLink to="/data">{t("nav.data")}</NavLink>
+          <div className="nav-group" role="group" aria-label={t("nav.group.forecast")}>
+            <span className="nav-label" aria-hidden="true">{t("nav.group.forecast")}</span>
+            <NavLink to="/" end>{t("nav.dashboard")}</NavLink>
+            <NavLink to="/items">{t("nav.items")}</NavLink>
+            <NavLink to="/effects">{t("nav.effects")}</NavLink>
+            <NavLink to="/lab">{t("nav.lab")}</NavLink>
+            <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
+          </div>
+          <div className="nav-group" role="group" aria-label={t("nav.group.decide")}>
+            <span className="nav-label" aria-hidden="true">{t("nav.group.decide")}</span>
+            <NavLink to="/inventory">{t("nav.inventory")}</NavLink>
+          </div>
+          <div className="nav-group" role="group" aria-label={t("nav.group.monitor")}>
+            <span className="nav-label" aria-hidden="true">{t("nav.group.monitor")}</span>
+            <NavLink to="/health">{t("nav.health")}</NavLink>
+            <NavLink to="/audit">{t("nav.audit")}</NavLink>
+          </div>
+          <div className="nav-group" role="group" aria-label={t("nav.group.data")}>
+            <span className="nav-label" aria-hidden="true">{t("nav.group.data")}</span>
+            <NavLink to="/data">{t("nav.data")}</NavLink>
+          </div>
         </nav>
         <div className="top-end">
           {owner.allowed && !IS_SNAPSHOT && <NavLink to="/data" className="btn primary">{t("nav.load")}</NavLink>}
@@ -71,6 +88,9 @@ function Shell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/items" element={<Items />} />
             <Route path="/items/:id" element={<ItemDetail />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/health" element={<Health />} />
+            <Route path="/audit" element={<Audit />} />
             <Route path="/planner" element={<Planner />} />
             <Route path="/effects" element={<Effects />} />
             <Route path="/lab" element={<Replay />} />

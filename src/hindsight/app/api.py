@@ -15,8 +15,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from hindsight.app import service
+from hindsight.app import audit_routes, inventory_routes, monitoring_routes, service
 from hindsight.data.importer import ImportProblem, read_sales_file
+from hindsight.audit.store import AuditLog
+from hindsight.data import adapters, quality
 from hindsight.data.sales import SalesData
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -24,7 +26,10 @@ ROOT = Path(__file__).resolve().parents[3]
 SAMPLE_DIR = ROOT / "data" / "sample"
 WEB_DIST = ROOT / "web" / "dist"
 CACHE_DIR = ROOT / "artifacts" / "cache"
+ADAPTERS_BUILTIN = ROOT / "adapters"  # shipped examples
+ADAPTERS_SAVED = ROOT / "artifacts" / "adapters"  # saved from the confirm screen
 OWNER_KEY_ENV = "HINDSIGHT_OWNER_KEY"
+AUDIT_DB_ENV = "HINDSIGHT_AUDIT_DB"
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
 
 
@@ -59,6 +64,16 @@ class MappingBody(BaseModel):
     value: str | None = None
     item: str | None = None
     item_columns: list[str] | None = None
+    item_cols: list[str] | None = None  # several columns that together name an item
+    business: dict[str, str | None] | None = None  # price, unit_cost, on_hand, on_order -> column
+    duplicates: str | None = None  # "sum" or "drop_exact"
+    adapter: str | None = None  # apply a saved adapter instead of the fields above
+
+
+class AdapterBody(BaseModel):
+    name: str
+    description: str = ""
+    overwrite: bool = False
 
 
 class AnalysisBody(BaseModel):
@@ -66,9 +81,21 @@ class AnalysisBody(BaseModel):
     calendar: str = "none"
 
 
+def _adapter_hint(e: Entry) -> dict | None:
+    """The adapter that fits this file's columns, and whether the current choices already are its choices."""
+    found, _ = adapters.list_adapters(ADAPTERS_BUILTIN, ADAPTERS_SAVED)
+    best = adapters.match([a for a, _ in found], [c["name"] for c in e.detection["columns"]])
+    if best is None:
+        return None
+    m = best.mapping
+    same = (e.detection["date"] == m.date and (e.detection["item_columns"] == m.item_columns if m.item_columns else
+            (e.detection["value"], e.detection["item"], e.detection["item_cols"]) == (m.value, m.item, m.item_cols)))
+    return {"name": best.name, "description": best.description, "applied": bool(same)}
+
+
 def _summary(e: Entry) -> dict:
     d = e.data
-    return {"id": e.id, "filename": e.filename, "is_sample": e.is_sample, "report": e.report, "detection": e.detection,
+    return {"quality": quality.assess(d), "adapter": _adapter_hint(e), "id": e.id, "filename": e.filename, "is_sample": e.is_sample, "report": e.report, "detection": e.detection,
             "n_series": d.n_series, "n_days": d.n_days, "first_date": str(d.dates[0].date()), "last_date": str(d.dates[-1].date()),
             "has_events": "event_name_1" in d.calendar.columns, "analyzed": e.analysis is not None,
             "plan": {"tier": (p := service.plan_for(d.n_days, 28)).tier, "text": p.explanation, "params": p.params}}
@@ -81,7 +108,8 @@ def _note_dicts(notes) -> list[dict]:
 def _describe(data: SalesData, report, det) -> tuple[dict, dict]:
     rep = asdict(report)
     rep["notes"] = _note_dicts(report.notes)
-    d = {"layout": det.layout, "date": det.date_col, "value": det.value_col, "item": det.id_col, "item_columns": det.series_cols, "columns": det.columns}
+    d = {"layout": det.layout, "date": det.date_col, "value": det.value_col, "item": det.id_col, "item_columns": det.series_cols, "item_cols": det.id_cols,
+         "business": det.business, "duplicates": det.duplicates, "columns": det.columns}
     return rep, d
 
 
@@ -96,7 +124,7 @@ def load_sample() -> tuple[SalesData, dict, dict]:
     return data, rep, d
 
 
-def create_app(serve_web: bool = True, owner_key: str | None = None) -> FastAPI:
+def create_app(serve_web: bool = True, owner_key: str | None = None, audit_db: Path | None = None) -> FastAPI:
     """`owner_key` (or the HINDSIGHT_OWNER_KEY environment variable) turns on key protection: loading data then needs the key in an
     X-Owner-Key header. With no key set, loading data is allowed only from the same computer the server runs on, and never through a proxy."""
     key = owner_key if owner_key is not None else (os.environ.get(OWNER_KEY_ENV) or None)
@@ -166,9 +194,35 @@ def create_app(serve_web: bool = True, owner_key: str | None = None) -> FastAPI:
         e = entry(dataset_id)
         if e.raw is None:
             raise HTTPException(400, "The sample file cannot be re-read with other columns.")
-        mapping = {"date": body.date, "value": body.value, "item": body.item, "item_columns": body.item_columns}
+        if body.adapter:
+            found, _ = adapters.list_adapters(ADAPTERS_BUILTIN, ADAPTERS_SAVED)
+            chosen = next((a for a, _ in found if a.name == body.adapter), None)
+            if chosen is None:
+                raise HTTPException(404, f"There is no adapter named '{body.adapter}'.")
+            mapping = adapters.to_mapping(chosen)
+        else:
+            mapping = {"date": body.date, "value": body.value, "item": body.item, "item_columns": body.item_columns, "item_cols": body.item_cols,
+                       "business": body.business, "duplicates": body.duplicates}
         data, report, det = read_sales_file(e.raw, e.filename, {k: v for k, v in mapping.items() if v is not None or k == "item"})
         e.data, (e.report, e.detection), e.analysis = data, _describe(data, report, det), None
+        return _summary(e)
+
+    @api.get("/adapters")
+    def list_adapters():
+        found, bad = adapters.list_adapters(ADAPTERS_BUILTIN, ADAPTERS_SAVED)
+        return {"adapters": [{"name": a.name, "description": a.description, "columns": a.columns, "source": src} for a, src in found], "unreadable": bad}
+
+    @api.post("/datasets/{dataset_id}/adapters")
+    def save_adapter(dataset_id: str, body: AdapterBody, request: Request):
+        require_owner(request)
+        e = entry(dataset_id)
+        if e.raw is None:
+            raise HTTPException(400, "The sample file is described by a built-in adapter; load your own file to save one.")
+        try:
+            a = adapters.from_import(body.name, body.description, e.report["mapping"], e.detection, e.report["mapping"].get("duplicates", "sum"))
+            adapters.save(ADAPTERS_SAVED, a, overwrite=body.overwrite)
+        except adapters.AdapterError as err:
+            return JSONResponse(status_code=422, content={"message": str(err), "code": err.code, "params": err.params})
         return _summary(e)
 
     @api.post("/datasets/{dataset_id}/analysis")
@@ -264,6 +318,10 @@ def create_app(serve_web: bool = True, owner_key: str | None = None) -> FastAPI:
             raise HTTPException(422, str(err.args[0] if err.args else err)) from err
 
     app.include_router(api)
+    app.include_router(inventory_routes.build_router(analyzed))
+    app.include_router(monitoring_routes.build_router(analyzed))
+    audit_log = AuditLog(audit_db or Path(os.environ.get(AUDIT_DB_ENV) or ROOT / "artifacts" / "audit" / "audit.sqlite"))  # opened on first use
+    app.include_router(audit_routes.build_router(entry, analyzed, audit_log, require_owner))
     if serve_web and WEB_DIST.exists():
         app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
     return app
