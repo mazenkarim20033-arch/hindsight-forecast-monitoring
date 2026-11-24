@@ -36,6 +36,7 @@ def main() -> None:
     write(OUT / "dataset.json", {"id": "snapshot", "filename": "Sample: 10 Walmart stores (public M5 data)", "is_sample": True, "report": rep, "detection": det,
                                  "n_series": d.n_series, "n_days": d.n_days, "first_date": str(d.dates[0].date()), "last_date": str(d.dates[-1].date()),
                                  "has_events": True, "analyzed": True, "plan": {"tier": plan.tier, "text": plan.explanation, "params": plan.params}})
+    write(OUT / "effects.json", service.holiday_effects(a.data))
     ov = service.overview(a)
     ov["methods"] = [m for m in ov["methods"] if m["name"] in METHODS]
     write(OUT / "overview.json", ov)
@@ -45,10 +46,12 @@ def main() -> None:
     for method in METHODS:
         write(OUT / "alerts" / f"{slug(method)}.json", service.alerts(a, method))
         write(OUT / "dashboard" / f"{slug(method)}.json", service.dashboard(a, method))
+        write(OUT / "planner" / f"{slug(method)}__all.json", service.stock_plan(a, None, method))
         for level in LEVELS:
             write(OUT / "total" / f"{slug(method)}__{int(level * 100)}.json", service.total_next(a, method, level))
         for item in d.ids:
             write(OUT / "alerts" / f"{slug(method)}__{item}.json", service.alerts(a, method, item=item))
+            write(OUT / "planner" / f"{slug(method)}__{item}.json", service.stock_plan(a, item, method))
             reasons_all = None  # the reasons do not depend on the range level, so work them out once per item and method
             for level in LEVELS:
                 write(OUT / "stage" / f"{item}__{slug(method)}__{int(level * 100)}.json", service.stage(a, item, method, level))

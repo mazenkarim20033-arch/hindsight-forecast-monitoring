@@ -1,4 +1,4 @@
-import type { Alerts, Dashboard, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
+import type { Alerts, Dashboard, DatasetSummary, Effects, Job, NextView, Overview, Scorecard, Stage, StockPlan } from "./types";
 
 /** The public demo has no server: it plays back answers the real code recorded for the bundled sample (see scripts/export_snapshot.py). */
 const BASE = `${import.meta.env.BASE_URL}snapshot/`;
@@ -41,4 +41,6 @@ export const snapshotApi = {
     load(p.item ? `alerts/${slug(p.method ?? "")}__${p.item}.json` : `alerts/${slug(p.method ?? "")}.json`, signal),
   dashboard: (_id: string, p: { method?: string }, signal?: AbortSignal): Promise<Dashboard> => load(`dashboard/${slug(p.method ?? "")}.json`, signal),
   total: (_id: string, p: { method?: string; level?: number }, signal?: AbortSignal): Promise<NextView> => load(`total/${slug(p.method ?? "")}__${level(p.level)}.json`, signal),
+  planner: (_id: string, p: { item?: string; method?: string }, signal?: AbortSignal): Promise<StockPlan> => load(`planner/${slug(p.method ?? "")}__${p.item || "all"}.json`, signal),
+  effects: (_id: string, signal?: AbortSignal): Promise<Effects> => load("effects.json", signal),
 };

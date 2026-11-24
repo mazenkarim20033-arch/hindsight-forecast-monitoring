@@ -358,6 +358,92 @@ def dashboard(a: Analysis, method: str = AUTO) -> dict:
             "recent_unusual": [{"item": x.series, "date": str(x.date.date()), "actual": x.actual, "expected": x.expected, "direction": x.direction} for x in recent.head(6).itertuples()]}
 
 
+STRATEGIES = ["reference_guess", "model_guess", "upper_80", "upper_90"]
+
+
+def stock_plan(a: Analysis, item: str | None = None, method: str = AUTO, days: int = 7) -> dict:
+    """A backtest of ordering rules. At every scored replay date, 'order' the next `days` days of demand under each rule and compare with what
+    was really sold: how often the order fell short, what share of sales that lost, and how much of the order was left over. No prices, lead
+    times or carry-over are modelled: this is only the cost of being wrong in each direction, measured on your own history."""
+    if method not in a.replays:
+        raise KeyError(f"Unknown method {method!r}")
+    if item is None:
+        r, _ = _total(a, method)
+        ref, _ = _total(a, REFERENCE)
+        si, name = 0, "All items"
+    else:
+        si, name = _series_index(a, item), item
+        r, ref = a.replays[method], a.replays[REFERENCE]
+    n = a.n_real
+    fsum = r.forecasts[:n, si, :days].sum(axis=1)
+    demand_all = r.actuals[:n, si, :days].sum(axis=1)
+    ratio = np.where(fsum > 0, demand_all / np.where(fsum > 0, fsum, 1), np.nan)  # how much was really sold per unit forecast, week by week
+    cover = {}
+    for key, q in (("upper_80", 0.8), ("upper_90", 0.9)):
+        o = np.full(n, np.nan)
+        for i in range(n):  # only weeks that had already ended by this replay date
+            known = ratio[: int(np.searchsorted(r.origins[:n] + days, r.origins[i], side="right"))]
+            known = known[np.isfinite(known)][-120:]
+            if len(known) >= 20:
+                o[i] = fsum[i] * np.quantile(known, q, method="higher")
+        cover[key] = o
+    idx = np.where(a.in_window[:n])[0]
+    demand = demand_all[idx]
+    orders = {"reference_guess": ref.forecasts[idx, si, :days].sum(axis=1), "model_guess": fsum[idx], "upper_80": cover["upper_80"][idx], "upper_90": cover["upper_90"][idx]}
+    ok = np.isfinite(orders["upper_80"]) & np.isfinite(orders["upper_90"]) & np.isfinite(demand)  # same dates for every rule
+    rows = []
+    for key in STRATEGIES:
+        o, dmd = orders[key][ok], demand[ok]
+        short, over = np.maximum(dmd - o, 0), np.maximum(o - dmd, 0)
+        rows.append({"key": key, "stockout_share": float((short > 0).mean()), "lost_share": float(short.sum() / dmd.sum()), "leftover_share": float(over.sum() / o.sum()),
+                     "average_order": float(o.mean())})
+    return {"item": name, "method": method, "days": days, "n_dates": int(ok.sum()), "average_demand": float(demand[ok].mean()), "strategies": rows,
+            "note": "Each replay date orders the next week in one go, with no carry-over, prices or delivery delay. It shows the cost of being wrong in each direction, not a profit."}
+
+
+EGYPT_FLAGS = ["ramadan", "eid_fitr", "eid_adha", "coptic_christmas", "sham_el_nessim", "national_holiday"]
+
+
+def holiday_effects(data: SalesData, max_events: int = 12, seed: int = 0) -> dict:
+    """How much sales really moved on holidays, measured from the data and not modelled: each flagged day against the average of the same
+    weekday in the 10 weeks before and after (flagged days left out). Dates are summed over all items. Reads the data only; no forecast needed."""
+    from hindsight.calendar_features import egypt_calendar
+
+    total = np.asarray(data.values, dtype=float).sum(axis=0)
+    n = len(total)
+    cal = egypt_calendar(data.dates)
+    flags: list[tuple[str, str, np.ndarray]] = [("egypt", c, cal[c].to_numpy().astype(bool)) for c in EGYPT_FLAGS]
+    c = data.calendar
+    if "event_name_1" in c.columns:
+        names = sorted(set(c["event_name_1"].dropna()) | set(c.get("event_name_2", pd.Series(dtype=object)).dropna()))
+        for nm in names:
+            hit = (c["event_name_1"] == nm).to_numpy() | ((c["event_name_2"] == nm).to_numpy() if "event_name_2" in c.columns else False)
+            flags.append(("event", nm, np.asarray(hit, dtype=bool)))
+    rng = np.random.default_rng(seed)
+    out = []
+    for kind, name, flag in flags:
+        days = np.where(flag)[0]
+        ratios = []
+        for d in days:
+            offs = np.array([d + 7 * k for k in range(-10, 11) if k != 0])
+            offs = offs[(offs >= 0) & (offs < n)]
+            offs = offs[~flag[offs]]
+            if len(offs) < 4 or total[offs].mean() <= 0:
+                continue
+            ratios.append(total[d] / total[offs].mean())
+        if len(ratios) < 2:
+            continue
+        r = np.asarray(ratios)
+        boot = rng.choice(r, size=(500, len(r))).mean(axis=1)
+        runs = int(np.sum(np.diff(np.r_[0, flag.astype(int)]) == 1))
+        out.append({"kind": kind, "name": name, "n_days": int(len(r)), "n_occurrences": runs, "ratio": float(r.mean()), "ratio_low": float(np.quantile(boot, 0.025)),
+                    "ratio_high": float(np.quantile(boot, 0.975))})
+    egypt = [x for x in out if x["kind"] == "egypt"]
+    events = sorted((x for x in out if x["kind"] == "event"), key=lambda x: -abs(x["ratio"] - 1))[:max_events]
+    return {"effects": egypt + events, "window_weeks": 10,
+            "note": "Each holiday day is compared with the same weekday in the 10 weeks around it. A shift in the trend or a nearby promotion is counted as a holiday effect, and holidays with few occurrences have wide intervals."}
+
+
 def alerts(a: Analysis, method: str = AUTO, last_days: int = 365, item: str | None = None) -> dict:
     ir = a.ranges[(method, ALERT_LEVEL)]
     values = np.asarray(a.data.values, dtype=float)

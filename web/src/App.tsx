@@ -6,6 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import Data from "./pages/Data";
 import ItemDetail from "./pages/ItemDetail";
 import Items from "./pages/Items";
+import Effects from "./pages/Effects";
+import Planner from "./pages/Planner";
 import Replay from "./pages/Replay";
 import Scorecard from "./pages/Scorecard";
 import { SessionProvider, useSession } from "./state/session";
@@ -42,6 +44,8 @@ function Shell() {
         <nav className="nav" aria-label={t("nav.main")}>
           <NavLink to="/" end>{t("nav.dashboard")}</NavLink>
           <NavLink to="/items">{t("nav.items")}</NavLink>
+          <NavLink to="/planner">{t("nav.planner")}</NavLink>
+          <NavLink to="/effects">{t("nav.effects")}</NavLink>
           <NavLink to="/lab">{t("nav.lab")}</NavLink>
           <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
           <NavLink to="/data">{t("nav.data")}</NavLink>
@@ -63,6 +67,8 @@ function Shell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/items" element={<Items />} />
             <Route path="/items/:id" element={<ItemDetail />} />
+            <Route path="/planner" element={<Planner />} />
+            <Route path="/effects" element={<Effects />} />
             <Route path="/lab" element={<Replay />} />
             <Route path="/scorecard" element={<Scorecard />} />
             <Route path="/data" element={<Data />} />

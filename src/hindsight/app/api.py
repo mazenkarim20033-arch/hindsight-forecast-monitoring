@@ -206,6 +206,17 @@ def create_app(serve_web: bool = True) -> FastAPI:
         except KeyError as err:
             raise HTTPException(422, "Unknown method.") from err
 
+    @api.get("/datasets/{dataset_id}/planner")
+    def planner(dataset_id: str, item: str | None = None, method: str = service.AUTO):
+        try:
+            return service.stock_plan(analyzed(dataset_id), item, method)
+        except (KeyError, ValueError) as err:
+            raise HTTPException(422, str(err.args[0] if err.args else err)) from err
+
+    @api.get("/datasets/{dataset_id}/effects")
+    def effects(dataset_id: str):
+        return service.holiday_effects(entry(dataset_id).data)
+
     @api.get("/datasets/{dataset_id}/dashboard")
     def dashboard(dataset_id: str, method: str = service.AUTO):
         try:

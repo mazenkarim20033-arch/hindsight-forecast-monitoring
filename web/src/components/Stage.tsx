@@ -1,7 +1,7 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useWidth } from "../hooks/useSize";
 import { useLang } from "../i18n";
-import { dateShort, monthYear, num } from "../lib/format";
+import { dateLong, dateShort, monthYear, num, pct } from "../lib/format";
 import type { StageModel } from "../lib/models";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   label: string;
   onSeek?: (localDay: number) => void;
   curtainText?: string;
+  level?: number; // the range level, named in the hover readout
 }
 
 // Time runs left to right in every language, so the chart is drawn in a left-to-right box even on a right-to-left page.
@@ -20,9 +21,11 @@ function compact(v: number): string {
 }
 
 /** The replay stage: real sales up to the cursor, the forecast fan opening from the day it was made, and the curtain over what is not yet known. */
-export function Stage({ model, label, onSeek, curtainText }: Props) {
+export function Stage({ model, label, onSeek, curtainText, level }: Props) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const { t } = useLang();
+  const [hover, setHover] = useState<number | null>(null);
+  const levelText = level ? pct(level) : "";
   const uid = useId().replace(/:/g, "");
   const H = Math.round(Math.min(440, Math.max(300, W * 0.4)));
   const { dates, actual, fan, cursor, hits, ymax } = model;
@@ -74,17 +77,36 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
   const curtainX = Math.min(x(cursor) + step / 2, W - PAD.r);
   const revealedFrom = fan ? Math.max(fan.origin, start) : start;
 
-  const seek = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onSeek) return;
+  const dayAt = (e: React.MouseEvent<SVGSVGElement>): number | null => {
     const rect = e.currentTarget.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width) * W;
     const i = Math.round(((px - PAD.l) / plotW) * n - 0.5) + start;
-    if (i >= 0 && i < dates.length) onSeek(i);
+    return i >= start && i <= end ? i : null;
   };
+  const seek = (e: React.MouseEvent<SVGSVGElement>) => {
+    const i = dayAt(e);
+    if (onSeek && i != null) onSeek(i);
+  };
+
+  // What the pointer is standing on: the real sales, and the forecast and range for that day if one covers it.
+  const k = hover != null && fan ? hover - fan.origin - 1 : -1;
+  const f = fan && k >= 0 && k < fan.forecast.length ? { guess: fan.forecast[k], low: fan.low[k], high: fan.high[k] } : null;
+  const real = hover != null && hover <= cursor ? actual[hover] : null;
+  const verdict = hover != null && hover <= cursor && f && hits ? hits[hover] : null;
+  const tipX = hover != null ? x(hover) : 0;
 
   return (
     <div ref={ref} className="stage-canvas" dir="ltr">
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} onClick={seek} className={onSeek ? "seekable" : undefined}>
+      {hover != null && (real != null || f) && (
+        <div className="tooltip" aria-hidden="true" style={{ left: tipX, top: PAD.t + 4, transform: tipX > W / 2 ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}>
+          <strong>{dateLong(dates[hover])}</strong>
+          {real != null && <span className="row"><i className="sw actual" />{t("tip.real")} <b>{num(real)}</b></span>}
+          {f && f.guess != null && <span className="row"><i className="sw fan" />{t("tip.forecast")} <b>{num(f.guess)}</b></span>}
+          {f && f.low != null && f.high != null && <span className="row sub">{t("tip.range", { level: levelText })} {t("score.to", { a: num(f.low), b: num(f.high) })}</span>}
+          {verdict != null && <span className={`row ${verdict ? "ok" : "bad"}`}>{verdict ? t("replay.day.inside") : t("replay.day.outside")}</span>}
+        </div>
+      )}
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} onClick={seek} onMouseMove={(e) => setHover(dayAt(e))} onMouseLeave={() => setHover(null)} className={onSeek ? "seekable" : undefined}>
         <defs>
           <pattern id={`pleat-${uid}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="7" height="7" className="pleat-base" />
@@ -140,6 +162,14 @@ export function Stage({ model, label, onSeek, curtainText }: Props) {
               : <path key={i} className={`miss${fresh ? " fresh" : ""}`} d={`M${cx - 2.4} ${laneY + 9}l4.8 4.8M${cx + 2.4} ${laneY + 9}l-4.8 4.8`} />;
           })}
         </g>}
+
+        {hover != null && (
+          <g pointerEvents="none">
+            <line className="hover-line" x1={tipX} x2={tipX} y1={PAD.t - 12} y2={H - PAD.b} />
+            {real != null && <circle className="hover-dot real" cx={tipX} cy={y(real)} r={4} />}
+            {f && f.guess != null && <circle className="hover-dot guess" cx={tipX} cy={y(f.guess)} r={4} />}
+          </g>
+        )}
 
         <g>
           {months.map((m) => (

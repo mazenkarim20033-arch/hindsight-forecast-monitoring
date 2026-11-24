@@ -87,7 +87,7 @@ function Player({ stage, overview, loading }: { stage: StageData; overview: Over
             <li><i className="sw curtain" /> {t("replay.legend.curtain")}</li>
           </ul>
         </div>
-        <Stage model={model} label={label} onSeek={seekLocal} curtainText={t("stage.hidden")} />
+        <Stage model={model} label={label} onSeek={seekLocal} curtainText={t("stage.hidden")} level={stage.level} />
         <div className="transport">
           <div className="buttons" role="group" aria-label={t("replay.playback")} dir="ltr">
             <button className="icon-btn" onClick={() => player.seek(min)} aria-label={t("replay.start")} title={t("replay.start")}><Skip /></button>

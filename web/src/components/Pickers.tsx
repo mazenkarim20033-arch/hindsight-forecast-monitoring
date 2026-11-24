@@ -18,10 +18,11 @@ interface Props {
   overview: Overview;
   item?: string;
   setItem?: (i: string) => void;
+  allLabel?: string; // adds an "all items" choice whose value is empty
   showLevel?: boolean;
 }
 
-export function Pickers({ overview, item, setItem, showLevel = true }: Props) {
+export function Pickers({ overview, item, setItem, allLabel, showLevel = true }: Props) {
   const { method, setMethod, level, setLevel } = useSession();
   const { t } = useLang();
   const label = useMethodLabel();
@@ -31,6 +32,7 @@ export function Pickers({ overview, item, setItem, showLevel = true }: Props) {
         <label className="pick">
           <span>{t("pick.item")}</span>
           <select value={item} onChange={(e) => setItem(e.target.value)}>
+            {allLabel && <option value="">{allLabel}</option>}
             {overview.series.map((s) => <option key={s.id} value={s.id}>{s.id}</option>)}
           </select>
         </label>

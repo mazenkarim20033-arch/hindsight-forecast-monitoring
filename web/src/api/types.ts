@@ -50,3 +50,7 @@ export interface Dashboard {
   recent_unusual: { item: string; date: string; actual: number; expected: number; direction: "higher" | "lower" }[];
 }
 export interface AnalysisSettings { horizon: number; calendar: "none" | "egypt" | "events" }
+export interface PlanRow { key: "reference_guess" | "model_guess" | "upper_80" | "upper_90"; stockout_share: number; lost_share: number; leftover_share: number; average_order: number }
+export interface StockPlan { item: string; method: string; days: number; n_dates: number; average_demand: number; strategies: PlanRow[]; note: string }
+export interface Effect { kind: "egypt" | "event"; name: string; n_days: number; n_occurrences: number; ratio: number; ratio_low: number; ratio_high: number }
+export interface Effects { effects: Effect[]; window_weeks: number; note: string }

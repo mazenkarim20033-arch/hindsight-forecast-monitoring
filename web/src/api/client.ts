@@ -1,5 +1,5 @@
 import { snapshotApi } from "./snapshot";
-import type { Alerts, AnalysisSettings, Dashboard, DatasetSummary, Job, NextView, Overview, Scorecard, Stage } from "./types";
+import type { Alerts, AnalysisSettings, Dashboard, DatasetSummary, Effects, Job, NextView, Overview, Scorecard, Stage, StockPlan } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code = "", public params: Record<string, unknown> = {}) {
@@ -65,6 +65,8 @@ const liveApi = {
   alerts: (id: string, p: { method?: string; item?: string }, signal?: AbortSignal) => request<Alerts>(`/datasets/${id}/alerts`, undefined, p, signal),
   dashboard: (id: string, p: { method?: string }, signal?: AbortSignal) => request<Dashboard>(`/datasets/${id}/dashboard`, undefined, p, signal),
   total: (id: string, p: { method?: string; level?: number }, signal?: AbortSignal) => request<NextView>(`/datasets/${id}/total`, undefined, p, signal),
+  planner: (id: string, p: { item?: string; method?: string }, signal?: AbortSignal) => request<StockPlan>(`/datasets/${id}/planner`, undefined, p, signal),
+  effects: (id: string, signal?: AbortSignal) => request<Effects>(`/datasets/${id}/effects`, undefined, undefined, signal),
 };
 
 /** The public demo plays back recorded answers; everywhere else the app talks to the local server. */

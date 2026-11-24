@@ -97,6 +97,15 @@ def test_the_whole_flow_with_simple_methods(client):
     assert tot["item"] == "All items" and len(tot["forecast"]) == 14
     assert abs(tot["forecast"][0] - (nx_milk["forecast"][0] + nx_bread["forecast"][0])) < 0.2  # the total forecast is the sum of the items'
     assert client.get(f"/api/datasets/{s['id']}/total", params={"level": 0.5}).status_code == 422
+    plan = client.get(f"/api/datasets/{s['id']}/planner", params={"item": "Milk"}).json()
+    by = {x["key"]: x for x in plan["strategies"]}
+    assert list(by) == service.STRATEGIES and plan["n_dates"] > 5
+    assert by["upper_90"]["stockout_share"] <= by["upper_80"]["stockout_share"] <= by["model_guess"]["stockout_share"] + 1e-9  # a higher order never runs short more often
+    assert by["upper_90"]["leftover_share"] >= by["model_guess"]["leftover_share"]  # ...and it leaves more over
+    assert client.get(f"/api/datasets/{s['id']}/planner").json()["item"] == "All items"
+    assert client.get(f"/api/datasets/{s['id']}/planner", params={"item": "Nope"}).status_code == 422
+    eff = client.get(f"/api/datasets/{s['id']}/effects").json()
+    assert {x["name"] for x in eff["effects"]} <= set(service.EGYPT_FLAGS)
 
 
 def test_unknown_inputs_are_refused_clearly(client):
@@ -154,6 +163,23 @@ def test_an_identical_analysis_is_loaded_from_the_cache_and_a_changed_one_is_not
     (next(iter(tmp_path.glob("*.pkl")))).write_bytes(b"damaged")
     again = service.run_analysis(d, service.Settings(horizon=7), cache_dir=tmp_path)  # a damaged cache file is recomputed, not fatal
     assert again.rows
+
+
+def test_holiday_effects_find_a_built_in_lift_and_report_no_effect_where_there_is_none():
+    from hindsight.calendar_features import egypt_calendar
+
+    dates = pd.date_range("2019-01-01", periods=1500)
+    cal = egypt_calendar(dates)
+    t = np.arange(1500)
+    weekly = np.array([1.0, 0.9, 0.9, 1.0, 1.2, 1.3, 1.1])[t % 7]
+    rng = np.random.default_rng(3)
+    base = 100 * weekly * (1 + 0.04 * rng.standard_normal(1500))
+    values = np.vstack([base * (1 + 0.5 * cal["ramadan"].to_numpy() - 0.8 * cal["sham_el_nessim"].to_numpy())])
+    eff = {x["name"]: x for x in service.holiday_effects(SalesData(dates, ["a"], values))["effects"]}
+    assert 1.35 < eff["ramadan"]["ratio"] < 1.65 and eff["ramadan"]["ratio_low"] > 1.3
+    assert eff["sham_el_nessim"]["ratio"] < 0.5 and eff["sham_el_nessim"]["ratio_high"] < 0.9  # a clear dip: only four such days, so the interval is wide
+    assert abs(eff["national_holiday"]["ratio"] - 1) < 0.1 and eff["national_holiday"]["ratio_low"] < 1 < eff["national_holiday"]["ratio_high"]
+    assert eff["ramadan"]["n_occurrences"] >= 3
 
 
 def test_a_pending_final_origin_never_leaks_into_scoring():

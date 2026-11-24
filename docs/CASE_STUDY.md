@@ -10,10 +10,13 @@ Forecasting tools show one number and a label that says "AI". A shop owner canno
 ## What it does
 - **Dashboard.** A one-sentence headline ("Sales are forecast to fall 6.0% over the next 7 days: about 285,301 units, against 303,606 in the last 7"), key numbers, an all-items forecast chart with its range, items to look at, and recent unusual days.
 - **Items.** Every item with last week's sales, the next week's forecast, the change, and a status. An item page adds the forecast with its range, plain-language reasons (what the model leaned on, adding up to the forecast), and that item's unusual days.
+- **Stock planner.** A backtest of ordering rules: if you had ordered a week of stock at every past date using the simple rule, the forecast's best guess, or enough to have covered 80% or 90% of earlier weeks, how often would you have run short, how much of sales would that have lost, and how much of the order would have been left over. On the sample, ordering the best guess ran short in 49% of weeks; ordering to cover 90% of earlier weeks cut that to 11% of weeks (close to the 10% it aims for) and left 4.3% of the order unsold. No prices or delivery delays are modelled: it shows the cost of being wrong in each direction, not a profit.
+- **Holiday effects.** Measured, not modelled: each holiday day against the same weekday in the weeks around it, with a plausible range, and an explicit "no clear effect" when the range spans zero. It answers whether an Egyptian calendar is worth using on *your* data. On the US sample the Egyptian holidays show no clear effect (as they should), while Christmas (−100%), Thanksgiving (−29%) and Labor Day (+27%) show up clearly.
+- **Hover readout.** Hovering any chart shows the date, the real sales, and the forecast with its range for the day under the pointer.
 - **Replay lab.** Press play and watch the past again: at each replay date the forecast sees only earlier days, its range opens ahead, and the real sales are revealed day by day behind a hatched "not yet known" area. A ribbon records every day the range held or missed.
 - **Scorecard.** Whether the learning model earned its place against the simple rule ("average of the same weekday over the last four weeks"), with intervals, win rate, bias, and how often the stated range held.
 - **Data.** Load your own CSV or Excel file (Arabic or English headers, Arabic digits, one row per receipt). Every guess and cleaning step is reported.
-- English and right-to-left Arabic.
+- English and right-to-left Arabic. Sample stores are named from their M5 codes (California 1, Texas 2), not invented names.
 
 ![Replay lab](screenshots/replay-lab.jpg)
 

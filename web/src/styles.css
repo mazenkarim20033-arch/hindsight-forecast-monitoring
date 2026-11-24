@@ -78,6 +78,7 @@ main { outline: none; }
 .section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .headline { font-family: var(--display); font-size: clamp(1.7rem, 3.4vw, 2.4rem); font-weight: 600; line-height: 1.15; max-width: 32ch; margin-bottom: 0.6rem; }
+.headline.long { font-size: clamp(1.25rem, 2.4vw, 1.7rem); max-width: 48ch; }
 .headline .up { color: var(--normal); }
 .headline .down { color: var(--warning); }
 
@@ -155,6 +156,7 @@ legend { padding: 0; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--rule); border-top-color: var(--ink); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .alert-box { padding: 0.8rem 1rem; border: 1px solid var(--critical); border-inline-start-width: 4px; background: var(--surface); margin-bottom: 1rem; }
+.note-box { padding: 0.8rem 1rem; border: 1px solid var(--rule); border-inline-start: 4px solid var(--ink); background: var(--surface); margin-bottom: 1rem; }
 .bar { width: 100%; max-width: 520px; height: 10px; background: var(--paper-2); border: 1px solid var(--rule); }
 .bar span { display: block; height: 100%; background: var(--ink); transition: width 0.4s ease; }
 .boot { max-width: 560px; padding-top: 2rem; display: grid; gap: 0.8rem; }
@@ -178,7 +180,18 @@ legend { padding: 0; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2
 .sw.actual { background: var(--ink); height: 3px; }
 .sw.fan { background: var(--pred-soft); border-top: 3px solid var(--pred); }
 .sw.curtain { background: repeating-linear-gradient(135deg, var(--paper-2) 0 3px, var(--rule) 3px 4px); border: 1px solid var(--rule); }
-.stage-canvas { width: 100%; }
+.stage-canvas { width: 100%; position: relative; }
+.tooltip { position: absolute; z-index: 2; pointer-events: none; background: var(--surface); border: 1px solid var(--ink); padding: 0.4rem 0.6rem; font-size: 0.82rem; display: grid; gap: 0.15rem; min-width: 11rem; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+.tooltip strong { font-size: 0.85rem; }
+.tooltip .row { display: flex; align-items: center; gap: 0.4rem; }
+.tooltip .row b { margin-inline-start: auto; font-weight: 600; }
+.tooltip .sub { color: var(--ink-2); }
+.tooltip .ok { color: var(--normal); font-weight: 600; }
+.tooltip .bad { color: var(--critical); font-weight: 600; }
+.hover-line { stroke: var(--ink); stroke-opacity: 0.45; stroke-width: 1; }
+.hover-dot { stroke: var(--surface); stroke-width: 2; }
+.hover-dot.real { fill: var(--ink); }
+.hover-dot.guess { fill: var(--pred); }
 .stage-canvas svg { display: block; width: 100%; height: auto; overflow: visible; }
 .stage-canvas svg.seekable { cursor: ew-resize; }
 .grid { stroke: var(--rule); stroke-width: 1; opacity: 0.7; }
@@ -270,6 +283,20 @@ legend { padding: 0; font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.2
 .two-col { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; align-items: start; }
 .crumbs { font-size: 0.88rem; margin-bottom: 0.6rem; }
 .tbl-link { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+
+/* Planner and holiday effects */
+.meter { display: flex; align-items: center; gap: 0.5rem; min-width: 7.5rem; }
+.meter-track { flex: 1; height: 12px; background: var(--paper-2); }
+.meter-track span { display: block; height: 100%; }
+.meter.short .meter-track span { background: var(--critical); }
+.meter.left .meter-track span { background: var(--warning); }
+.meter-val { font-weight: 600; min-width: 3.2rem; text-align: end; }
+.effect-track { position: relative; display: block; height: 18px; min-width: 14rem; background: var(--paper-2); }
+.effect-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--ink-3); }
+.effect-range { position: absolute; top: 7px; height: 4px; background: var(--ink-3); }
+.effect-dot { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; background: var(--ink); border-radius: 50%; }
+.effect-dot.up { background: var(--normal); }
+.effect-dot.down { background: var(--critical); border-radius: 0; transform: rotate(45deg) scale(0.85); }
 
 /* Data page */
 .drop { display: grid; gap: 0.5rem; justify-items: start; padding: 1.1rem 1.25rem; border: 1.5px dashed var(--ink-3); background: var(--surface); cursor: pointer; position: relative; }

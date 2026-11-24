@@ -12,6 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> None:
     data = load_m5(ROOT / "data" / "raw" / "extracted")
     stores = at_level(data, "store")
+    # M5 only publishes store codes (CA_1 ...), not names. "California 1" says exactly what the code says and invents nothing.
+    states = {"CA": "California", "TX": "Texas", "WI": "Wisconsin"}
+    stores.ids = [f"{states[i.split('_')[0]]} {i.split('_')[1]}" for i in stores.ids]
     out = ROOT / "data" / "sample"
     out.mkdir(parents=True, exist_ok=True)
     long = pd.DataFrame({"date": stores.dates.repeat(stores.n_series).strftime("%Y-%m-%d"),

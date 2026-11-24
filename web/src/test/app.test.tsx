@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +39,8 @@ const scorecard = {
   per_series: [{ series: "A", reference_wape: 0.1, best_wape: 0.08, coverage_80: 0.8, gain: 0.02 }, { series: "B", reference_wape: 0.09, best_wape: 0.07, coverage_80: 0.79, gain: 0.02 }],
   window: { n_dates: 20, horizon: 3 }, limits: ["Replay dates overlap, so the intervals shown are indicative."],
 };
+const planner = { item: "All items", method: "best method so far", days: 7, n_dates: 40, average_demand: 1000, note: "n", strategies: [{ key: "reference_guess", stockout_share: 0.5, lost_share: 0.02, leftover_share: 0.03, average_order: 990 }, { key: "model_guess", stockout_share: 0.49, lost_share: 0.013, leftover_share: 0.02, average_order: 1000 }, { key: "upper_80", stockout_share: 0.2, lost_share: 0.004, leftover_share: 0.07, average_order: 1060 }, { key: "upper_90", stockout_share: 0.1, lost_share: 0.002, leftover_share: 0.11, average_order: 1100 }] };
+const effects = { window_weeks: 10, note: "n", effects: [{ kind: "egypt", name: "ramadan", n_days: 60, n_occurrences: 2, ratio: 1.18, ratio_low: 1.1, ratio_high: 1.26 }, { kind: "egypt", name: "eid_fitr", n_days: 6, n_occurrences: 2, ratio: 1.02, ratio_low: 0.8, ratio_high: 1.2 }, { kind: "event", name: "Thanksgiving", n_days: 5, n_occurrences: 5, ratio: 0.72, ratio_low: 0.7, ratio_high: 0.75 }] };
 const alerts = { level: 0.98, method: "best method so far", count: 1, items: [{ item: "A", date: dates[50], actual: 500, expected: 100, low: 80, high: 120, direction: "higher", deviation_pct: 4 }], note: "n" };
 const dashboard = {
   method: "best method so far", method_in_use: "learning model", horizon: 3, last_day: dates[N - 1], totals: { last_7: 1000, previous_7: 980, next_7: 940 },
@@ -54,7 +56,7 @@ function mockFetch() {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     const path = String(url).replace(/\?.*$/, "");
     const body = path.endsWith("/overview") ? overview : path.endsWith("/stage") ? stage : path.endsWith("/next") ? next : path.endsWith("/total") ? { ...next, item: "All items" }
-      : path.endsWith("/scorecard") ? scorecard : path.endsWith("/alerts") ? alerts : path.endsWith("/dashboard") ? dashboard : path.includes("/datasets/") ? dataset : {};
+      : path.endsWith("/scorecard") ? scorecard : path.endsWith("/alerts") ? alerts : path.endsWith("/dashboard") ? dashboard : path.endsWith("/planner") ? planner : path.endsWith("/effects") ? effects : path.includes("/datasets/") ? dataset : {};
     return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   }));
 }
@@ -80,7 +82,7 @@ describe("dashboard", () => {
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
     const nav = within(screen.getByRole("navigation", { name: /main/i }));
-    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Items", "Replay lab", "Scorecard", "Data"]);
+    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Items", "Stock planner", "Holiday effects", "Replay lab", "Scorecard", "Data"]);
   });
 });
 
@@ -139,6 +141,42 @@ describe("other pages", () => {
   });
 });
 
+describe("features beyond the forecast", () => {
+  it("stock planner compares ordering rules in plain numbers", async () => {
+    window.location.hash = "#/planner";
+    const { container } = render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Stock planner" })).toBeInTheDocument();
+    expect(await screen.findByText(/short in 49% of weeks/i)).toBeInTheDocument();
+    expect(screen.getByText("Forecast, enough to cover 90% of past weeks")).toBeInTheDocument();
+    expect(await audit(container)).toEqual([]);
+  });
+
+  it("holiday effects say when there is no clear effect instead of guessing", async () => {
+    window.location.hash = "#/effects";
+    const { container } = render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Holiday effects" })).toBeInTheDocument();
+    expect(await screen.findByText("Ramadan")).toBeInTheDocument();
+    expect(screen.getByText("Thanksgiving")).toBeInTheDocument();
+    expect(screen.getByText("+18%")).toBeInTheDocument();
+    expect(screen.getAllByText("No clear effect").length).toBe(1); // Eid al-Fitr: its range spans zero
+    expect(screen.getByText(/US retail data/)).toBeInTheDocument(); // the sample warns it says nothing about Egypt
+    expect(await audit(container)).toEqual([]);
+  });
+
+  it("hovering a chart reads out the measurements under the pointer", async () => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 900, bottom: 400, width: 900, height: 400, toJSON: () => ({}) });
+    render(<App />);
+    const chart = await screen.findByRole("img", { name: /forecast for all items/i });
+    expect(document.querySelector(".tooltip")).toBeNull();
+    fireEvent.mouseMove(chart, { clientX: 300, clientY: 100 });
+    await waitFor(() => expect(document.querySelector(".tooltip")?.textContent).toContain("Real sales"));
+    fireEvent.mouseMove(chart, { clientX: 880, clientY: 100 }); // past today: the forecast and its range
+    await waitFor(() => expect(document.querySelector(".tooltip")?.textContent).toMatch(/Forecast.*80% range/));
+    fireEvent.mouseLeave(chart);
+    await waitFor(() => expect(document.querySelector(".tooltip")).toBeNull());
+    vi.restoreAllMocks();
+  });
+});
 describe("failures", () => {
   it("tells you when the server is not running", async () => {
     sessionStorage.clear();
