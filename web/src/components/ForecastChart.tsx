@@ -19,7 +19,7 @@ export function ForecastChart({ next, level, horizon }: { next: NextView; level:
           <li><i className="sw curtain" /> {t("replay.legend.curtain")}</li>
         </ul>
       </div>
-      <Stage model={model} label={t("next.stage.label", { item: next.item, n: horizon, date: next.last_day, level: pct(level) })} curtainText={t("stage.unknown")} level={level} />
+      <Stage model={model} label={t("next.stage.label", { item: next.item === "All items" ? t("dash.chart.title") : next.item, n: horizon, date: next.last_day, level: pct(level) })} curtainText={t("stage.unknown")} level={level} />
     </div>
   );
 }

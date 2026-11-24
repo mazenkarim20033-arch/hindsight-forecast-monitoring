@@ -1,7 +1,8 @@
 import { HashRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { IS_SNAPSHOT } from "./api/client";
 import { ErrorBox } from "./components/States";
-import { LangProvider, useLang } from "./i18n";
+import { useEffect } from "react";
+import { LangProvider, nounFor, useLang } from "./i18n";
 import Dashboard from "./pages/Dashboard";
 import Data from "./pages/Data";
 import ItemDetail from "./pages/ItemDetail";
@@ -30,7 +31,9 @@ function Boot() {
 
 function Shell() {
   const { dataset, overview, booting, problem } = useSession();
-  const { t, lang, setLang } = useLang();
+  const { t, lang, setLang, setNoun } = useLang();
+  const header = dataset?.detection.item;
+  useEffect(() => setNoun(nounFor(header)), [header, setNoun]);
   const ready = Boolean(dataset && overview);
   return (
     <>

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { ar } from "../i18n/ar";
 import { en } from "../i18n/en";
-import { plural, translate } from "../i18n";
+import { nounFor, plural, translate } from "../i18n";
 
 const holes = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -18,7 +18,7 @@ describe("translations", () => {
   });
   it("has no Arabic string that English lacks, except extra plural forms", () => {
     const extra = Object.keys(ar).filter((k) => !(k in en));
-    expect(extra.every((k) => /^unit\.\w+\.(zero|one|two|few|many|other)$/.test(k))).toBe(true);
+    expect(extra.every((k) => /^unit\.\w+\.(zero|one|two|few|many|other)(@\w+)?$/.test(k))).toBe(true);
   });
   it("falls back to English and then to the key, never to an empty string", () => {
     expect(translate("ar", "no.such.key")).toBe("no.such.key");
@@ -31,6 +31,20 @@ describe("translations", () => {
     expect(plural("ar", "unit.day", 2)).toBe("يومان");
     expect(plural("ar", "unit.day", 5)).toBe("5 أيام");
     expect(plural("ar", "unit.day", 15)).toBe("15 يومًا");
+  });
+});
+
+describe("naming the things tracked", () => {
+  it("has a store wording in both languages for every store key in English", () => {
+    for (const key of Object.keys(en).filter((k) => k.includes("@"))) expect(ar[key], `missing Arabic for ${key}`).toBeTruthy();
+  });
+  it("picks the noun from the grouping column", () => {
+    expect([nounFor("store"), nounFor("Branch name"), nounFor("الفرع"), nounFor("product"), nounFor(null)]).toEqual(["store", "store", "store", "item", "item"]);
+    expect(translate("en", "items.title", undefined, "store")).toBe("Stores");
+    expect(translate("en", "items.title")).toBe("Items");
+    expect(translate("en", "next.col.day", undefined, "store")).toBe("Day"); // keys without a store wording are unchanged
+    expect(plural("en", "unit.item", 3, "store")).toBe("3 stores");
+    expect(plural("ar", "unit.item", 5, "store")).toBe("5 متاجر");
   });
 });
 
