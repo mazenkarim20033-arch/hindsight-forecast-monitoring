@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { DashItem } from "../api/types";
 import { ForecastChart } from "../components/ForecastChart";
-import { HealthSection } from "../components/HealthNote";
+import { useHealthStatus } from "../components/HealthNote";
+import { Status } from "./Health";
 import { Pickers, useMethodLabel } from "../components/Pickers";
 import { ErrorBox, Loading } from "../components/States";
 import { useVerdictText } from "../components/verdict";
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const id = dataset!.id;
   const dash = useAsync((signal) => api.dashboard(id, { method }, signal), [id, method]);
   const total = useAsync((signal) => api.total(id, { method, level }, signal), [id, method, level]);
+  const health = useHealthStatus();
   const d = dash.data;
   const change = d && d.totals.last_7 > 0 ? d.totals.next_7 / d.totals.last_7 - 1 : null;
   const kind = change == null || Math.abs(change) < 0.02 ? "flat" : change > 0 ? "up" : "down";
@@ -46,7 +48,7 @@ export default function Dashboard() {
       {dash.error && <ErrorBox problem={dash.error} onRetry={dash.reload} />}
       {!d && !dash.error && <Loading text={t("state.loading")} />}
       {d && overview && (
-        <div className="with-margin">
+        <div>
           <div>
             <p className="headline">
               {t(`dash.headline.${kind}`, { pct: pct(Math.abs(change ?? 0), 1), next: num(d.totals.next_7), last: num(d.totals.last_7) })}
@@ -94,19 +96,18 @@ export default function Dashboard() {
               )}
             </section>
 
-            <HealthSection />
-
             <section className="section" aria-labelledby="trust-h">
               <div className="section-head"><h2 id="trust-h">{t("dash.trust.title")}</h2><span className="chip evaluation">{t("chip.evaluation")}</span></div>
+              {health && <p className="health-big"><Status s={health} /></p>}
               <p>{verdictText(d.verdict).text}</p>
-              <Link className="btn" to="/scorecard">{t("dash.trust.open")}</Link>
+              <p className="toolbar">
+                <Link className="btn" to="/health">{t("dash.health.open")}</Link>
+                <Link className="btn" to="/scorecard">{t("dash.trust.open")}</Link>
+                <Link className="btn" to="/inventory">{t("dash.health.plan")}</Link>
+              </p>
             </section>
           </div>
-          <aside className="margin-notes" aria-label="Notes">
-            <p><span className="chip prediction">{t("chip.forecast")}</span><br />{t("dash.note.1", { chip: "" }).trim()}</p>
-            <p><span className="chip actual">{t("chip.actual")}</span><br />{t("dash.note.2", { chip: "" }).trim()}</p>
-            <p><span className="chip evaluation">{t("chip.evaluation")}</span><br />{t("dash.note.3", { chip: "" }).trim()}</p>
-          </aside>
+
         </div>
       )}
     </>

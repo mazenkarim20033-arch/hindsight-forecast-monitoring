@@ -4,7 +4,7 @@ Status key: **implemented** means built, tested and measured as described; **pla
 
 ## Decision Optimizer (implemented, Milestone 1)
 
-Screen: **Inventory & decisions**. API: `POST /api/datasets/{id}/inventory`. Code: `src/hindsight/inventory/` (arithmetic and input rules), `src/hindsight/app/inventory_service.py` (joins it to the forecast), `src/hindsight/app/inventory_routes.py`.
+Screen: **Orders** (page title "What should you order?"). API: `POST /api/datasets/{id}/inventory`. Code: `src/hindsight/inventory/` (arithmetic and input rules), `src/hindsight/app/inventory_service.py` (joins it to the forecast), `src/hindsight/app/inventory_routes.py`.
 
 ### What it does
 For every item (or store), recommends how much to order over a cover period under three options, and shows what each option costs and risks:
@@ -216,7 +216,7 @@ file -> Onboarding (columns, keys, duplicates, price/cost/stock, quality, adapte
 - **Health reaches the pages that rely on the forecast.** The dashboard has a "Is the forecast still reliable?" section; the order screen shows a caution when health is Watch or Action needed; the health page leads back to the orders.
 - **Onboarding feeds the optimizer.** "Use stock and prices from the file" fills per-item stock and, only if every item has the same one, price and cost.
 - **Scenarios reuse the optimizer, and the log reuses both.** A scenario's baseline is the plain recommendation; a decision can be recorded under a scenario; the log stores the health status of the moment and a fingerprint of the data.
-- **The menu follows the work:** Forecast (dashboard, stores, holiday effects, replay lab, scorecard), Decide (inventory & decisions), Monitor (forecast health, decision log), Files (data). The old Stock planner is still reachable as the "Ordering-rule backtest" tab, and `/planner` still works.
+- **The menu is short:** Dashboard, Stores, Orders, Reliability, Decision log, Data, and a "More" menu holding Holiday effects, Replay lab and Scorecard. The old Stock planner is still reachable from "More tools" at the bottom of the Orders page ("Check how old ordering rules would have done"), and `/planner` still works.
 
 ### Evaluation (actual results)
 - **One path through everything** (`tests/test_integration.py`): upload a priced file, save an adapter, run the forecast, plan orders with the file's stock (the inventory position equals the file's on-hand plus on-order exactly), run a scenario whose baseline equals the plain recommendation, read health as of the last day, hit the six older endpoints, record a decision (it repeats the optimizer's orders and carries the health status), load the same report with 40 more days (recognised by the adapter), save the outcome (real sales equal the sums from the file; stock available equals position plus order), and verify the log. It compares each step's numbers with another step's.
@@ -230,3 +230,11 @@ file -> Onboarding (columns, keys, duplicates, price/cost/stock, quality, adapte
 - Health appears on the dashboard and the order screen only; it does not yet block anything. It is advice, by design.
 - Moving the older routes out of `api.py` into per-feature routers is still deferred.
 - The Arabic text for all five features has not been read by a native speaker.
+
+## Simplification pass (after Milestone 7)
+At the owner's request the interface was made simpler without changing any calculation:
+- **Orders page.** It opens with two questions (how long a delivery takes, how often you order). Prices and costs, the mode switch and the per-item stock table are folded away as optional. The answer is three plainly named choices (play it safe on stock, balanced and recommended, never run out), one sentence saying what to order and the chance of not running out, and a table with the quantity to order per item and a low/medium/high risk word beside the percentage. Saving the decision is one button. Every earlier number (costs, assumptions, the service-level track record, the notes) is still there under "See the numbers behind this". What-if scenarios and the old ordering-rule backtest moved from tabs to a "More tools" section.
+- **Menu.** Six links plus "More", without group labels.
+- **Dashboard.** The side notes were removed and the health status and the scorecard verdict were merged into one "Can the forecast be trusted?" section with three buttons.
+- **Reliability page.** The status, the reasons, the error chart and the per-item table come first; the table of checks, the rules, and the retrained-model test are folded under "How this was decided" and "Advanced".
+Tests: 43 web tests pass (the same count, updated to the new wording); the axe audit of the dashboard, orders and reliability pages (with every fold open) in light and dark found no violations.

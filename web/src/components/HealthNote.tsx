@@ -7,7 +7,7 @@ import { Status } from "../pages/Health";
 import { useSession } from "../state/session";
 
 /** The forecast's health as of the last day of data, for pages whose advice rests on the forecast. Nothing is shown while it loads or if it cannot be had. */
-function useHealthStatus(): HealthStatus | null {
+export function useHealthStatus(): HealthStatus | null {
   const { dataset, method } = useSession();
   const res = useAsync((signal) => api.health(dataset!.id, method, signal), [dataset!.id, method]);
   return res.data?.overall?.status ?? null;

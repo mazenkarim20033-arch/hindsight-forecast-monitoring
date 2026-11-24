@@ -72,26 +72,7 @@ function Body({ r }: { r: Result }) {
         {drift.status === "watch" && <p className="fine">{reason(drift, t, r)} {t("health.why.drift.note")}</p>}
       </section>
 
-      <section className="section">
-        <div className="section-head"><h2 id="health-sig">{t("health.signals")}</h2></div>
-        <div className="table-wrap" tabIndex={0} role="region" aria-label={t("health.signals")}>
-          <table>
-            <thead><tr><th scope="col">{t("health.col.signal")}</th><th scope="col" className="num">{t("health.col.now")}</th><th scope="col">{t("health.col.watch")}</th><th scope="col">{t("health.col.action")}</th><th scope="col">{t("health.col.status")}</th></tr></thead>
-            <tbody>
-              {r.overall.signals.map((s) => {
-                const v = show(s);
-                return (
-                  <tr key={s.key}>
-                    <th scope="row">{t(`health.sig.${s.key}`)}<small className="muted" style={{ display: "block" }}>{t(`health.sig.${s.key}.desc`)}</small></th>
-                    <td className="num">{v.value}</td><td>{v.watch}</td><td>{v.action}</td>
-                    <td>{s.key === "drift" ? <span className="muted">{t(s.status === "watch" ? "health.shifted" : "health.stable")} · {t("health.info_only")}</span> : <Status s={s.status} />}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+
 
       <section className="section">
         <div className="section-head"><h2 id="health-time">{t("health.timeline")}</h2><span className="chip evaluation">{t("chip.evaluation")}</span></div>
@@ -129,13 +110,41 @@ function Body({ r }: { r: Result }) {
         <p className="fine">{t("health.items.note")}</p>
       </section>
 
-      <Challenge method={r.method} />
-
+      <details className="more">
+        <summary>{t("health.how")}</summary>
+      <section className="section">
+        <div className="section-head"><h2 id="health-sig">{t("health.signals")}</h2></div>
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={t("health.signals")}>
+          <table>
+            <thead><tr><th scope="col">{t("health.col.signal")}</th><th scope="col" className="num">{t("health.col.now")}</th><th scope="col">{t("health.col.watch")}</th><th scope="col">{t("health.col.action")}</th><th scope="col">{t("health.col.status")}</th></tr></thead>
+            <tbody>
+              {r.overall.signals.map((s) => {
+                const v = show(s);
+                return (
+                  <tr key={s.key}>
+                    <th scope="row">{t(`health.sig.${s.key}`)}<small className="muted" style={{ display: "block" }}>{t(`health.sig.${s.key}.desc`)}</small></th>
+                    <td className="num">{v.value}</td><td>{v.watch}</td><td>{v.action}</td>
+                    <td>{s.key === "drift" ? <span className="muted">{t(s.status === "watch" ? "health.shifted" : "health.stable")} · {t("health.info_only")}</span> : <Status s={s.status} />}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
       <section className="section">
         <div className="section-head"><h2 id="health-rules">{t("health.rules")}</h2></div>
         <p className="muted">{t("health.rules.lede")}</p>
         <ul className="plain">{r.notes.map((c) => <li key={c} className="fine">{t(`health.note.${c}`)}</li>)}</ul>
       </section>
+      </details>
+
+      <details className="more">
+        <summary>{t("health.advanced")}</summary>
+        <Challenge method={r.method} />
+      </details>
+
+
     </>
   );
 }

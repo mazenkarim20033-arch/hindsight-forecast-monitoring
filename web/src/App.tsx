@@ -48,27 +48,20 @@ function Shell() {
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label={t("app.brand")}>Hindsight<small>{t("brand.tag")}</small></NavLink>
         <nav className="nav" aria-label={t("nav.main")}>
-          <div className="nav-group" role="group" aria-label={t("nav.group.forecast")}>
-            <span className="nav-label" aria-hidden="true">{t("nav.group.forecast")}</span>
-            <NavLink to="/" end>{t("nav.dashboard")}</NavLink>
-            <NavLink to="/items">{t("nav.items")}</NavLink>
-            <NavLink to="/effects">{t("nav.effects")}</NavLink>
-            <NavLink to="/lab">{t("nav.lab")}</NavLink>
-            <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
-          </div>
-          <div className="nav-group" role="group" aria-label={t("nav.group.decide")}>
-            <span className="nav-label" aria-hidden="true">{t("nav.group.decide")}</span>
-            <NavLink to="/inventory">{t("nav.inventory")}</NavLink>
-          </div>
-          <div className="nav-group" role="group" aria-label={t("nav.group.monitor")}>
-            <span className="nav-label" aria-hidden="true">{t("nav.group.monitor")}</span>
-            <NavLink to="/health">{t("nav.health")}</NavLink>
-            <NavLink to="/audit">{t("nav.audit")}</NavLink>
-          </div>
-          <div className="nav-group" role="group" aria-label={t("nav.group.data")}>
-            <span className="nav-label" aria-hidden="true">{t("nav.group.data")}</span>
-            <NavLink to="/data">{t("nav.data")}</NavLink>
-          </div>
+          <NavLink to="/" end>{t("nav.dashboard")}</NavLink>
+          <NavLink to="/items">{t("nav.items")}</NavLink>
+          <NavLink to="/inventory">{t("nav.inventory")}</NavLink>
+          <NavLink to="/health">{t("nav.health")}</NavLink>
+          <NavLink to="/audit">{t("nav.audit")}</NavLink>
+          <NavLink to="/data">{t("nav.data")}</NavLink>
+          <details className="nav-more">
+            <summary>{t("nav.more")}</summary>
+            <div className="nav-more-list" onClick={(e) => e.currentTarget.parentElement?.removeAttribute("open")}>
+              <NavLink to="/effects">{t("nav.effects")}</NavLink>
+              <NavLink to="/lab">{t("nav.lab")}</NavLink>
+              <NavLink to="/scorecard">{t("nav.scorecard")}</NavLink>
+            </div>
+          </details>
         </nav>
         <div className="top-end">
           {owner.allowed && !IS_SNAPSHOT && <NavLink to="/data" className="btn primary">{t("nav.load")}</NavLink>}

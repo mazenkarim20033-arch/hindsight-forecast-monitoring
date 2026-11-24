@@ -115,7 +115,7 @@ describe("dashboard", () => {
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
     const nav = within(screen.getByRole("navigation", { name: /main/i }));
-    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Stores", "Holiday effects", "Replay lab", "Scorecard", "Inventory & decisions", "Forecast health", "Decision log", "Data"]) // the mock data groups by a "store" column, so the menu says stores;
+    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Stores", "Orders", "Reliability", "Decision log", "Data", "Holiday effects", "Replay lab", "Scorecard"]) // the mock data groups by a "store" column, so the menu says stores;
   });
 });
 
@@ -259,7 +259,7 @@ describe("inventory and decisions", () => {
   it("asks for the lead time first, treats blanks as unknown, then shows three options with their assumptions and track record", async () => {
     window.location.hash = "#/inventory";
     const { container } = render(<App />);
-    expect(await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "What should you order?" })).toBeInTheDocument();
     expect(screen.getByText(/Enter the supplier lead time/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Supplier lead time (days)"), "3");
     expect(await screen.findByRole("heading", { name: "Three ways to order" })).toBeInTheDocument();
@@ -280,10 +280,10 @@ describe("inventory and decisions", () => {
   it("labels the example as an illustration and keeps the old backtest one click away", async () => {
     window.location.hash = "#/inventory";
     render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" });
+    await screen.findByRole("heading", { level: 1, name: "What should you order?" });
     await userEvent.click(screen.getByRole("button", { name: "Fill with an illustrative example" }));
     expect(screen.getByText(/an illustration, not your business/)).toBeInTheDocument();
-    await userEvent.click(screen.getByLabelText("Ordering-rule backtest"));
+    await userEvent.click(screen.getByRole("button", { name: "Check how old ordering rules would have done" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Stock planner" })).toBeInTheDocument();
   });
 });
@@ -292,13 +292,13 @@ describe("what-if scenarios", () => {
   it("starts from the baseline, sends only what was typed, and shows hypotheses, errors and the kept-order view", async () => {
     window.location.hash = "#/inventory";
     const { container } = render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" });
-    await userEvent.click(screen.getByLabelText("What-if scenarios"));
+    await screen.findByRole("heading", { level: 1, name: "What should you order?" });
+    await userEvent.click(screen.getByRole("button", { name: "Try a what-if" }));
     expect(screen.getByText(/none of these results is a forecast/)).toBeInTheDocument();
     expect(screen.getByText(/Enter the supplier lead time on the Order decisions tab/)).toBeInTheDocument();
-    await userEvent.click(screen.getByLabelText("Order decisions"));
+    await userEvent.click(screen.getByRole("button", { name: "Back to the order plan" }));
     await userEvent.type(screen.getByLabelText("Supplier lead time (days)"), "3");
-    await userEvent.click(screen.getByLabelText("What-if scenarios"));
+    await userEvent.click(screen.getByRole("button", { name: "Try a what-if" }));
     await userEvent.click(screen.getByRole("button", { name: "Demand up" }));
     expect(await screen.findByRole("heading", { name: "Baseline and scenarios side by side" })).toBeInTheDocument();
     const call = vi.mocked(fetch).mock.calls.filter(([u]) => String(u).endsWith("/scenarios")).at(-1)!;
@@ -314,8 +314,8 @@ describe("what-if scenarios", () => {
   it("keeps scenarios in this browser and can remove them all", async () => {
     window.location.hash = "#/inventory";
     render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" });
-    await userEvent.click(screen.getByLabelText("What-if scenarios"));
+    await screen.findByRole("heading", { level: 1, name: "What should you order?" });
+    await userEvent.click(screen.getByRole("button", { name: "Try a what-if" }));
     await userEvent.click(screen.getByRole("button", { name: "Supplier late" }));
     expect(JSON.parse(localStorage.getItem("hindsight.scenarios.v1")!)[0].f.delay).toBe("5");
     await userEvent.click(screen.getByRole("button", { name: "Remove all scenarios" }));
@@ -390,7 +390,7 @@ describe("smart data onboarding", () => {
   it("fills stock from the file, and a price only when every item has the same one", async () => {
     window.location.hash = "#/inventory";
     render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" });
+    await screen.findByRole("heading", { level: 1, name: "What should you order?" });
     await userEvent.click(screen.getByRole("button", { name: "Use stock and prices from the file" }));
     expect(screen.getByText(/Stock was filled in for 2 items/)).toBeInTheDocument();
     expect(screen.getByLabelText("Selling price per unit")).toHaveValue("10");
@@ -461,7 +461,7 @@ describe("decision log", () => {
     stub();
     window.location.hash = "#/inventory";
     render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Inventory & decisions" });
+    await screen.findByRole("heading", { level: 1, name: "What should you order?" });
     await userEvent.type(screen.getByLabelText("Supplier lead time (days)"), "3");
     await userEvent.click(await screen.findByRole("button", { name: "Record decision" }));
     await userEvent.type(screen.getByLabelText("A: Ordered"), "777");
@@ -476,18 +476,19 @@ describe("decision log", () => {
 });
 
 describe("features work together", () => {
-  it("groups the menu by what you are doing", async () => {
+  it("keeps the menu short and puts the deep-dive pages under More", async () => {
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
     const nav = within(screen.getByRole("navigation", { name: "Main" }));
-    expect(nav.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual(["Forecast", "Decide", "Monitor", "Files"]);
-    expect(within(nav.getByRole("group", { name: "Monitor" })).getAllByRole("link").map((l) => l.textContent)).toEqual(["Forecast health", "Decision log"]);
+    const more = nav.getByText("More").closest("details")!;
+    expect(within(more).getAllByRole("link").map((l) => l.textContent)).toEqual(["Holiday effects", "Replay lab", "Scorecard"]);
+    expect(nav.getAllByRole("link").length - within(more).getAllByRole("link").length).toBe(6);
   });
   it("shows the forecast's health on the dashboard, with the ways on to the details and to ordering", async () => {
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Is the forecast still reliable?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Can the forecast be trusted?" })).toBeInTheDocument();
     expect(screen.getAllByText("Watch").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "See the details" })).toHaveAttribute("href", "#/health");
+    expect(screen.getByRole("link", { name: "See reliability details" })).toHaveAttribute("href", "#/health");
     expect(screen.getByRole("link", { name: "Plan orders" })).toHaveAttribute("href", "#/inventory");
   });
   it("warns on the order screen when the forecast behind the advice is on watch, and the health page leads back to the orders", async () => {
