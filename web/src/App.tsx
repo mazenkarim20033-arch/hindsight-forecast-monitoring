@@ -30,7 +30,7 @@ function Boot() {
 }
 
 function Shell() {
-  const { dataset, overview, booting, problem } = useSession();
+  const { dataset, overview, booting, problem, owner } = useSession();
   const { t, lang, setLang, setNoun } = useLang();
   const header = dataset?.detection.item;
   useEffect(() => setNoun(nounFor(header)), [header, setNoun]);
@@ -54,6 +54,7 @@ function Shell() {
           <NavLink to="/data">{t("nav.data")}</NavLink>
         </nav>
         <div className="top-end">
+          {owner.allowed && !IS_SNAPSHOT && <NavLink to="/data" className="btn primary">{t("nav.load")}</NavLink>}
           <button className="lang" onClick={() => setLang(lang === "ar" ? "en" : "ar")} lang={lang === "ar" ? "en" : "ar"} aria-label={t("app.language")}>
             {lang === "ar" ? "English" : "العربية"}
           </button>

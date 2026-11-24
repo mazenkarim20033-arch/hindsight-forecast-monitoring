@@ -56,7 +56,7 @@ function mockFetch() {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     const path = String(url).replace(/\?.*$/, "");
     const body = path.endsWith("/overview") ? overview : path.endsWith("/stage") ? stage : path.endsWith("/next") ? next : path.endsWith("/total") ? { ...next, item: "All items" }
-      : path.endsWith("/scorecard") ? scorecard : path.endsWith("/alerts") ? alerts : path.endsWith("/dashboard") ? dashboard : path.endsWith("/planner") ? planner : path.endsWith("/effects") ? effects : path.includes("/datasets/") ? dataset : {};
+      : path.endsWith("/scorecard") ? scorecard : path.endsWith("/alerts") ? alerts : path.endsWith("/owner") ? { required: false, allowed: true } : path.endsWith("/dashboard") ? dashboard : path.endsWith("/planner") ? planner : path.endsWith("/effects") ? effects : path.includes("/datasets/") ? dataset : {};
     return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   }));
 }
@@ -177,6 +177,42 @@ describe("features beyond the forecast", () => {
     vi.restoreAllMocks();
   });
 });
+describe("loading your own data is for the owner only", () => {
+  function keyedFetch(secret: string) {
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace(/\?.*$/, "");
+      const given = (init?.headers as Record<string, string> | undefined)?.["X-Owner-Key"];
+      const body = path.endsWith("/owner") ? { required: true, allowed: given === secret } : path.endsWith("/overview") ? overview : path.endsWith("/dashboard") ? dashboard : path.endsWith("/total") ? { ...next, item: "All items" } : path.includes("/datasets/") ? dataset : {};
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+    }));
+  }
+
+  it("shows no way to load a file, and no Load your data button, until the key is entered", async () => {
+    keyedFetch("s3cret");
+    window.location.hash = "#/data";
+    render(<App />);
+    expect(await screen.findByLabelText("Owner key")).toBeInTheDocument();
+    expect(screen.queryByText(/drop your sales file/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Load your data" })).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Owner key"), "nope");
+    await userEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(await screen.findByText("That key was not accepted.")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Owner key"));
+    await userEvent.type(screen.getByLabelText("Owner key"), "s3cret");
+    await userEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(await screen.findByText(/drop your sales file here/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Load your data" })).toBeInTheDocument();
+  });
+
+  it("explains how to use your own data when this is not the owner's computer and no key exists", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith("/owner") ? { required: false, allowed: false } : String(url).endsWith("/overview") ? overview : String(url).includes("/datasets/") ? dataset : {}), { status: 200 })));
+    window.location.hash = "#/data";
+    render(<App />);
+    expect(await screen.findByText(/limited to the owner/i)).toBeInTheDocument();
+    expect(screen.queryByText(/drop your sales file/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("failures", () => {
   it("tells you when the server is not running", async () => {
     sessionStorage.clear();

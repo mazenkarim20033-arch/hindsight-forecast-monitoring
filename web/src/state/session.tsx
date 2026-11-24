@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api } from "../api/client";
+import { api, ownerKey } from "../api/client";
 import type { AnalysisSettings, DatasetSummary, Job, Overview } from "../api/types";
 import { toProblem, type Problem } from "../hooks/useAsync";
 
@@ -14,6 +14,9 @@ interface Session {
   booting: boolean;
   job: Job | null;
   problem: Problem | null;
+  owner: { required: boolean; allowed: boolean };
+  /** Check a key with the server and remember it for this browser tab if it is accepted. */
+  unlock: (key: string) => Promise<boolean>;
   method: string;
   level: 0.8 | 0.9;
   setDataset: (d: DatasetSummary | null) => void;
@@ -38,6 +41,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetState] = useState<DatasetSummary | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [booting, setBooting] = useState(true);
+  const [owner, setOwner] = useState({ required: false, allowed: false });
   const [job, setJob] = useState<Job | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [method, setMethod] = useState(AUTO);
@@ -45,6 +49,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const alive = useRef(true);
   const bootStarted = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+
+  const refreshOwner = useCallback(async () => {
+    try { const o = await api.owner(); setOwner(o); return o.allowed; } catch { setOwner({ required: false, allowed: false }); return false; }
+  }, []);
+  const unlock = useCallback(async (key: string) => {
+    ownerKey.set(key.trim());
+    const ok = await refreshOwner();
+    if (!ok) ownerKey.set("");
+    return ok;
+  }, [refreshOwner]);
 
   const setDataset = useCallback((d: DatasetSummary | null) => {
     setDatasetState(d);
@@ -96,6 +110,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (bootStarted.current) return; // React runs effects twice in development; one boot is enough
     bootStarted.current = true;
+    void refreshOwner();
     let cancelled = false;
     (async () => {
       const id = remembered();
@@ -116,8 +131,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<Session>(() => ({
-    dataset, overview, booting, job, problem, method, level, setDataset, setMethod, setLevel, analyze, useSample, clearProblem: () => setProblem(null),
-  }), [dataset, overview, booting, job, problem, method, level, setDataset, analyze, useSample]);
+    dataset, overview, booting, job, problem, owner, unlock, method, level, setDataset, setMethod, setLevel, analyze, useSample, clearProblem: () => setProblem(null),
+  }), [dataset, overview, booting, job, problem, owner, unlock, method, level, setDataset, analyze, useSample]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

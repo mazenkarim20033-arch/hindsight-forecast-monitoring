@@ -1,6 +1,12 @@
 import { snapshotApi } from "./snapshot";
 import type { Alerts, AnalysisSettings, Dashboard, DatasetSummary, Effects, Job, NextView, Overview, Scorecard, Stage, StockPlan } from "./types";
 
+const OWNER_STORE = "hindsight.owner";
+export const ownerKey = {
+  get: (): string => { try { return sessionStorage.getItem(OWNER_STORE) ?? ""; } catch { return ""; } },
+  set: (k: string) => { try { if (k) sessionStorage.setItem(OWNER_STORE, k); else sessionStorage.removeItem(OWNER_STORE); } catch { /* storage may be blocked */ } },
+};
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code = "", public params: Record<string, unknown> = {}) {
     super(message);
@@ -19,7 +25,8 @@ async function request<T>(path: string, init?: RequestInit, params?: Params, sig
     .join("&");
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}${query ? `?${query}` : ""}`, { ...init, signal });
+    const key = ownerKey.get();
+    res = await fetch(`${BASE}${path}${query ? `?${query}` : ""}`, { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), ...(key ? { "X-Owner-Key": key } : {}) }, signal });
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err;
     throw new ApiError(0, API_DOWN, "server_down");
@@ -52,6 +59,7 @@ const liveApi = {
     form.append("file", file);
     return request<DatasetSummary>("/datasets", { method: "POST", body: form });
   },
+  owner: (signal?: AbortSignal) => request<{ required: boolean; allowed: boolean }>("/owner", undefined, undefined, signal),
   sample: () => request<DatasetSummary>("/datasets/sample", { method: "POST" }),
   dataset: (id: string, signal?: AbortSignal) => request<DatasetSummary>(`/datasets/${id}`, undefined, undefined, signal),
   remap: (id: string, mapping: { date: string; value?: string | null; item?: string | null; item_columns?: string[] | null }) =>

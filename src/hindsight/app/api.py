@@ -1,6 +1,8 @@
 """The web API. One in-memory workspace per server process: uploaded files, their cleaned data and the latest analysis of each.
 
 Files are kept in memory only and are not written to disk. Restarting the server forgets them."""
+import hmac
+import os
 import threading
 import traceback
 import uuid
@@ -8,7 +10,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -22,6 +24,12 @@ ROOT = Path(__file__).resolve().parents[3]
 SAMPLE_DIR = ROOT / "data" / "sample"
 WEB_DIST = ROOT / "web" / "dist"
 CACHE_DIR = ROOT / "artifacts" / "cache"
+OWNER_KEY_ENV = "HINDSIGHT_OWNER_KEY"
+LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+class OwnerOnly(Exception):
+    """Loading your own data is limited to the owner of this installation."""
 
 
 @dataclass
@@ -88,7 +96,10 @@ def load_sample() -> tuple[SalesData, dict, dict]:
     return data, rep, d
 
 
-def create_app(serve_web: bool = True) -> FastAPI:
+def create_app(serve_web: bool = True, owner_key: str | None = None) -> FastAPI:
+    """`owner_key` (or the HINDSIGHT_OWNER_KEY environment variable) turns on key protection: loading data then needs the key in an
+    X-Owner-Key header. With no key set, loading data is allowed only from the same computer the server runs on, and never through a proxy."""
+    key = owner_key if owner_key is not None else (os.environ.get(OWNER_KEY_ENV) or None)
     app = FastAPI(title="Hindsight", version="0.1.0")
     api = APIRouter(prefix="/api")
     datasets: dict[str, Entry] = {}
@@ -97,6 +108,19 @@ def create_app(serve_web: bool = True) -> FastAPI:
     @app.exception_handler(ImportProblem)
     async def _import_problem(_, exc: ImportProblem):
         return JSONResponse(status_code=422, content={"message": str(exc), "code": exc.code, "params": exc.params})
+
+    @app.exception_handler(OwnerOnly)
+    async def _owner_only(_, exc: OwnerOnly):
+        return JSONResponse(status_code=403, content={"message": "Only the owner can load files here.", "code": "owner_only", "params": {}})
+
+    def is_owner(request: Request) -> bool:
+        if key:
+            return hmac.compare_digest(request.headers.get("x-owner-key", "").encode(), key.encode())
+        return (request.client.host if request.client else "") in LOCAL_HOSTS and "x-forwarded-for" not in request.headers
+
+    def require_owner(request: Request) -> None:
+        if not is_owner(request):
+            raise OwnerOnly()
 
     def entry(dataset_id: str) -> Entry:
         if dataset_id not in datasets:
@@ -113,8 +137,13 @@ def create_app(serve_web: bool = True) -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    @api.get("/owner")
+    def owner(request: Request):
+        return {"required": bool(key), "allowed": is_owner(request)}
+
     @api.post("/datasets")
-    async def upload(file: UploadFile = File(...)):
+    async def upload(request: Request, file: UploadFile = File(...)):
+        require_owner(request)
         raw = await file.read(MAX_UPLOAD_BYTES + 1)
         if len(raw) > MAX_UPLOAD_BYTES:
             raise HTTPException(413, f"The file is larger than {MAX_UPLOAD_BYTES // 1024 // 1024} MB. Send fewer columns or a shorter period.")
@@ -132,7 +161,8 @@ def create_app(serve_web: bool = True) -> FastAPI:
         return _summary(e)
 
     @api.post("/datasets/{dataset_id}/mapping")
-    def remap(dataset_id: str, body: MappingBody):
+    def remap(dataset_id: str, body: MappingBody, request: Request):
+        require_owner(request)
         e = entry(dataset_id)
         if e.raw is None:
             raise HTTPException(400, "The sample file cannot be re-read with other columns.")
@@ -142,8 +172,10 @@ def create_app(serve_web: bool = True) -> FastAPI:
         return _summary(e)
 
     @api.post("/datasets/{dataset_id}/analysis")
-    def start(dataset_id: str, body: AnalysisBody):
+    def start(dataset_id: str, body: AnalysisBody, request: Request):
         e = entry(dataset_id)
+        if not e.is_sample:
+            require_owner(request)
         settings = service.Settings(horizon=body.horizon, calendar=body.calendar)
         try:
             settings.validate(e.data)

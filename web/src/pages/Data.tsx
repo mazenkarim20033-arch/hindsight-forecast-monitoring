@@ -10,7 +10,7 @@ import { dateLong, pct } from "../lib/format";
 import { useSession } from "../state/session";
 
 export default function Data() {
-  const { dataset, job, problem, analyze, useSample } = useSession();
+  const { dataset, job, problem, analyze, useSample, owner } = useSession();
   const { t, n } = useLang();
   const say = useServerText();
   const navigate = useNavigate();
@@ -64,12 +64,12 @@ export default function Data() {
 
       <section className="section" aria-labelledby="load-h">
         <div className="section-head"><h2 id="load-h">{t("data.load.title")}</h2></div>
-        {IS_SNAPSHOT ? <p>{t("data.demo")}</p> : (
+        {IS_SNAPSHOT ? <p>{t("data.demo")}</p> : owner.allowed ? (
           <>
             <Drop busy={busy || running} onFile={(f) => receive(() => api.upload(f))} />
             <p className="fine">{t("data.load.text")}</p>
           </>
-        )}
+        ) : <OwnerGate />}
         {error && <div className="alert-box" role="alert"><strong>{t("start.badfile")}</strong> {say(error, "problem")}</div>}
       </section>
 
@@ -214,5 +214,26 @@ function Field({ label, value, options, onChange, none }: { label: string; value
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </label>
+  );
+}
+
+/** Loading data is for the owner only: with a key configured the owner types it here; without one, only the computer running the server counts. */
+function OwnerGate() {
+  const { owner, unlock } = useSession();
+  const { t } = useLang();
+  const [key, setKey] = useState("");
+  const [wrong, setWrong] = useState(false);
+  if (!owner.required) return <p className="note-box">{t("owner.locked")} {t("owner.local")}</p>;
+  return (
+    <form className="card" onSubmit={async (e) => { e.preventDefault(); setWrong(!(await unlock(key))); }}>
+      <h3>{t("owner.title")}</h3>
+      <p className="muted">{t("owner.locked")} {t("owner.keyed")}</p>
+      <label className="field">
+        <span>{t("owner.key")}</span>
+        <input type="password" autoComplete="off" value={key} onChange={(e) => { setKey(e.target.value); setWrong(false); }} aria-invalid={wrong} />
+      </label>
+      {wrong && <p role="alert" className="bad">{t("owner.wrong")}</p>}
+      <div><button className="btn primary" type="submit" disabled={!key.trim()}>{t("owner.unlock")}</button></div>
+    </form>
   );
 }

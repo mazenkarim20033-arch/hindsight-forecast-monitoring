@@ -23,6 +23,7 @@ const level = (l?: number) => Math.round((l ?? 0.8) * 100);
 const done: Job = { id: "snapshot", dataset: "snapshot", state: "done", progress: 1, message: "Done", error: null };
 
 export const snapshotApi = {
+  owner: async (): Promise<{ required: boolean; allowed: boolean }> => ({ required: false, allowed: false }),
   upload: async (): Promise<DatasetSummary> => { throw new SnapshotError(0, "Loading your own file is not available in the public demo. Run Hindsight locally to use your data."); },
   sample: (): Promise<DatasetSummary> => load("dataset.json"),
   dataset: (_id: string, signal?: AbortSignal): Promise<DatasetSummary> => load("dataset.json", signal),

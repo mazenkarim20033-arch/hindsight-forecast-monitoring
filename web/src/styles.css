@@ -119,7 +119,7 @@ tr.ref { background: var(--pred-softer); }
 .mini th { width: 34%; }
 
 /* Controls */
-button, select, input[type="text"], input[type="search"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 0.4rem 0.7rem; }
+button, select, input[type="text"], input[type="search"], input[type="password"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 0.4rem 0.7rem; }
 button { cursor: pointer; font-weight: 500; }
 button:hover:not(:disabled) { border-color: var(--ink); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -108,6 +108,33 @@ def test_the_whole_flow_with_simple_methods(client):
     assert {x["name"] for x in eff["effects"]} <= set(service.EGYPT_FLAGS)
 
 
+def test_only_the_owner_can_load_data(client):
+    raw = weekly_csv(300)
+    files = {"file": ("sales.csv", raw, "text/csv")}
+    assert client.get("/api/owner").json() == {"required": False, "allowed": True}  # same computer, no key set: the owner
+
+    far = TestClient(create_app(serve_web=False), client=("203.0.113.9", 5000))  # someone else on the network
+    assert far.get("/api/owner").json() == {"required": False, "allowed": False}
+    refused = far.post("/api/datasets", files=files)
+    assert refused.status_code == 403 and refused.json()["code"] == "owner_only"
+
+    proxied = client.post("/api/datasets", files=files, headers={"X-Forwarded-For": "198.51.100.7"})  # looks local, but came through a proxy
+    assert proxied.status_code == 403
+
+    keyed = TestClient(create_app(serve_web=False, owner_key="s3cret"), client=("203.0.113.9", 5000))
+    assert keyed.get("/api/owner").json() == {"required": True, "allowed": False}
+    assert keyed.post("/api/datasets", files=files).status_code == 403
+    assert keyed.post("/api/datasets", files=files, headers={"X-Owner-Key": "wrong"}).status_code == 403
+    assert keyed.get("/api/owner", headers={"X-Owner-Key": "s3cret"}).json()["allowed"] is True
+    ok = keyed.post("/api/datasets", files=files, headers={"X-Owner-Key": "s3cret"})
+    assert ok.status_code == 200
+    ds = ok.json()["id"]
+    assert keyed.post(f"/api/datasets/{ds}/mapping", json={"date": "date"}).status_code == 403
+    assert keyed.post(f"/api/datasets/{ds}/analysis", json={"horizon": 7}).status_code == 403  # an uploaded file cannot be analysed without the key
+    sample = keyed.post("/api/datasets/sample")
+    assert sample.status_code == 200  # the public sample stays open to everyone
+
+
 def test_unknown_inputs_are_refused_clearly(client):
     s = upload(client, weekly_csv(320))
     job = client.post(f"/api/datasets/{s['id']}/analysis", json={"horizon": 7}).json()

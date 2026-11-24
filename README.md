@@ -23,6 +23,15 @@ cd web && npm install && npm run dev      # then open http://localhost:5174
 ```
 The app opens on the bundled sample (the 10 Walmart stores in `data/sample/`, real M5 data). The first run replays five years and takes about a minute; the result is cached and later visits open at once. Load your own file on the Data page. The interface is in English and Arabic (right-to-left); the button at the top right switches.
 
+## Who can load data
+Only the owner. The public demo is static and read-only. On your own computer the server recognises you (same machine, no proxy), so the **Load your data** button just works. For a server that other people can reach, set a secret before starting it and type it once on the Data page:
+
+```bash
+HINDSIGHT_OWNER_KEY=choose-a-long-secret python -m uvicorn hindsight.app.api:app --port 8100
+```
+
+Without the key, nobody else can upload, re-map or analyse a file; everyone can still use the bundled sample. Uploaded files stay in memory and are never written to disk.
+
 ## Public demo
 A recorded-playback build of the sample needs no server: scripts/export_snapshot.py records what the real code answers for the sample into web/public/snapshot/, and VITE_SNAPSHOT=1 npm run build serves those recordings. .github/workflows/pages.yml builds and publishes it to GitHub Pages once the repository is pushed (not done yet).
 

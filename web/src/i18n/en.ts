@@ -292,7 +292,7 @@ export const en = {
   "data.load.text": "The file is read by the Hindsight server on this computer and kept in memory only.",
   "data.sample.button": "Use the sample data",
   "data.run": "Run the analysis",
-  "data.demo": "This public demo runs on the bundled sample only. To analyse your own file, run Hindsight on your computer; the README explains how.",
+  "data.demo": "This public demo is read-only and shows the bundled sample. Loading data is limited to the owner, who runs Hindsight on their own computer.",
   "data.running": "Analysing",
   "data.method.note": "Everything here comes from the same code the research used.",
   "nav.planner": "Stock planner",
@@ -351,7 +351,15 @@ export const en = {
   "unit.item.other@store": "{n} stores",
   "score.items.title@store": "By store",
   "score.items.label@store": "Scores by store",
-  "score.items.item@store": "Store",  "odd.note": "An alert means sales fell outside the range the forecast gave for that day (about 1 normal day in 50 will do so by chance). Small changes cannot be seen this way.",
+  "score.items.item@store": "Store",  "nav.load": "Load your data",
+  "owner.title": "Owner access",
+  "owner.locked": "Loading your own data is limited to the owner of this installation. Everyone can explore the sample.",
+  "owner.keyed": "Enter the owner key to load a file.",
+  "owner.key": "Owner key",
+  "owner.unlock": "Unlock",
+  "owner.wrong": "That key was not accepted.",
+  "owner.local": "To use your own data, run Hindsight on your own computer: it recognises you there, with no key needed.",
+  "problem.owner_only": "Only the owner can load files here.",  "odd.note": "An alert means sales fell outside the range the forecast gave for that day (about 1 normal day in 50 will do so by chance). Small changes cannot be seen this way.",
 } as const;
 
 export type Key = keyof typeof en;
