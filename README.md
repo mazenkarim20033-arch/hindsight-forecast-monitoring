@@ -40,3 +40,6 @@ python scripts/run_baselines.py
 All results so far are on US retail data and use only trivial baselines. Nothing is claimed about Egyptian shops yet. See [docs/DATASET_CARD.md](docs/DATASET_CARD.md).
 
 Data: M5 Forecasting competition data (Walmart), via Zenodo, CC BY 4.0.
+
+## Licence
+Code: MIT (see LICENSE). The bundled sample in data/sample is derived from the M5 Forecasting competition data (Walmart), CC BY 4.0.
