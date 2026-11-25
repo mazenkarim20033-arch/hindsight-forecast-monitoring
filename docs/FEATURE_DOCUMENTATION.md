@@ -248,3 +248,10 @@ Tests: 43 web tests pass (the same count, updated to the new wording); the axe a
 - **A short list:** the 10 items that matter most first, a search box, "Show all N items", and a CSV download of the order list. With no costs every item gets the same safety level, so the risk column would say the same thing 100 times; it is hidden in that case and the biggest orders come first. With stock entered, risk differs per item and the items most likely to run out come first.
 - **Folded away:** saving the decision ("Keep a record of this order"), and every earlier number under "See the numbers behind this".
 
+### Third pass: orders and what-if as one page
+The Orders page and the What-if tool were still confusing as two things. They are now one flow on one page:
+1. One question (how many days a delivery takes), with the starting-guess note.
+2. The answer: one sentence ("Order 24,450 units across 100 items, enough for the next 10 days"), the chance of not running out, and the short item list (top 10, search, CSV).
+3. **What if something changes?** Four choices: sales up 20%, sales down 20%, delivery 5 days late, 30% less stock. Picking one gives one plain answer: what to order instead, and whether keeping the normal order would miss sales or leave stock unsold. It is the same scenario arithmetic as before (one scenario per click, labelled "not a forecast"). The full scenario builder (several scenarios, promotions, price change with an elasticity, saving, export) is one link away under "Build your own what-if (advanced)".
+4. **Settings and details**, folded: how often you order, how careful to be, prices and costs, stock, saving the order to the decision log, every earlier number, and the old ordering-rule check.
+

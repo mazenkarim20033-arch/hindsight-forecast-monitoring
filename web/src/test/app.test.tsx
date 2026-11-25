@@ -262,7 +262,7 @@ describe("inventory and decisions", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "What should you order?" })).toBeInTheDocument();
     expect(await screen.findByText(/We started with a delivery time of 3 days and an order every 7 days/)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "What to order" })).toBeInTheDocument();
-    expect(screen.getByText(/units to order across 2 items/)).toBeInTheDocument();
+    expect(screen.getByText(/Order .* units across 2 items, enough for the next 10 days/)).toBeInTheDocument();
     const call = vi.mocked(fetch).mock.calls.find(([u]) => String(u).endsWith("/inventory"))!;
     const sent = JSON.parse(String((call[1] as RequestInit).body));
     expect(sent.lead_time_days).toBe(3);
@@ -278,6 +278,20 @@ describe("inventory and decisions", () => {
     expect(screen.getByRole("heading", { name: "Did these cover levels hold on the past?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download the order list (CSV)" })).toBeInTheDocument();
     expect(await audit(container)).toEqual([]);
+  });
+  it("answers a what-if in one plain sentence from four buttons, sending only the change that was picked", async () => {
+    window.location.hash = "#/inventory";
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "What if something changes?" })).toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.some(([u]) => String(u).endsWith("/scenarios"))).toBe(false); // nothing is worked out until a change is picked
+    await userEvent.click(screen.getByRole("button", { name: "Sales go up 20%" }));
+    expect(await screen.findByText(/To cover this, order 120 units instead of 100 \(\+20%\)\./)).toBeInTheDocument();
+    expect(screen.getByText(/you would probably miss about 8 units of sales/)).toBeInTheDocument();
+    const call = vi.mocked(fetch).mock.calls.filter(([u]) => String(u).endsWith("/scenarios")).at(-1)!;
+    expect(JSON.parse(String((call[1] as RequestInit).body)).scenarios).toEqual([{ name: "Sales go up 20%", demand_change_pct: 20 }]);
+    await userEvent.click(screen.getByRole("button", { name: "Sales go up 20%" })); // clicking it again puts it away
+    expect(screen.queryByText(/To cover this/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Sales go up 20%" })).toHaveAttribute("aria-pressed", "false");
   });
   it("labels the example as an illustration and keeps the old backtest one click away", async () => {
     window.location.hash = "#/inventory";
@@ -295,7 +309,7 @@ describe("what-if scenarios", () => {
     window.location.hash = "#/inventory";
     const { container } = render(<App />);
     await screen.findByRole("heading", { level: 1, name: "What should you order?" });
-    await userEvent.click(screen.getByRole("button", { name: "Try a what-if" }));
+    await userEvent.click(screen.getByRole("button", { name: "Build your own what-if (advanced)" }));
     expect(screen.getByText(/none of these results is a forecast/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Demand up" }));
     expect(await screen.findByRole("heading", { name: "Baseline and scenarios side by side" })).toBeInTheDocument();
@@ -313,7 +327,7 @@ describe("what-if scenarios", () => {
     window.location.hash = "#/inventory";
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "What should you order?" });
-    await userEvent.click(screen.getByRole("button", { name: "Try a what-if" }));
+    await userEvent.click(screen.getByRole("button", { name: "Build your own what-if (advanced)" }));
     await userEvent.click(screen.getByRole("button", { name: "Supplier late" }));
     expect(JSON.parse(localStorage.getItem("hindsight.scenarios.v1")!)[0].f.delay).toBe("5");
     await userEvent.click(screen.getByRole("button", { name: "Remove all scenarios" }));

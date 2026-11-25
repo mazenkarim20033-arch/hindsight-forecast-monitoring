@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import type { Inventory as Result, StrategyKey } from "../api/types";
+import type { Inventory as Result, InventoryInputs, ScenarioSpec, StrategyKey } from "../api/types";
 import { HealthCaution } from "../components/HealthNote";
 import Num from "../components/Num";
 import RecordDecision from "../components/RecordDecision";
 import { ErrorBox, Loading } from "../components/States";
 import { useAsync } from "../hooks/useAsync";
-import { useLang } from "../i18n";
+import { useLang, useServerText } from "../i18n";
 import { num, pct } from "../lib/format";
 import { useSession } from "../state/session";
 import { useBaseInputs, useDebounced, type BaseInputs } from "./baseInputs";
@@ -43,6 +43,55 @@ function downloadCsv(rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
+type Change = "up" | "down" | "late" | "stock";
+const CHANGES: Record<Change, { name: string; spec: Omit<ScenarioSpec, "name">; recorded: string | null }> = {
+  up: { name: "Sales go up 20%", spec: { demand_change_pct: 20 }, recorded: "Demand up 20%" },
+  down: { name: "Sales go down 20%", spec: { demand_change_pct: -20 }, recorded: null },
+  late: { name: "Delivery is 5 days late", spec: { supplier_delay_days: 5 }, recorded: "Supplier 5 days late" },
+  stock: { name: "I have 30% less stock", spec: { stock_reduction_pct: 30 }, recorded: "Stock 30% lower" },
+};
+
+/** "What if something changes?": four buttons, one plain sentence each. The full scenario builder stays one click away for people who want it. */
+function QuickWhatIf({ body, strategy, locked, advanced }: { body: InventoryInputs; strategy: StrategyKey; locked: boolean; advanced: () => void }) {
+  const { dataset } = useSession();
+  const { t } = useLang();
+  const say = useServerText();
+  const [pick, setPick] = useState<Change | null>(null);
+  const key = JSON.stringify({ body, pick });
+  const res = useAsync((signal) => (pick ? api.scenarios(dataset!.id, { ...body, scenarios: [{ name: CHANGES[pick].name, ...CHANGES[pick].spec }] }, signal) : Promise.resolve(null)), [dataset!.id, key]);
+  const run = res.data;
+  const s = run && pick ? (locked ? run.scenarios.find((x) => x.name === CHANGES[pick].recorded) : run.scenarios[0]) : null;
+  const order = s?.comparison?.totals[strategy]?.order;
+  const kept = s?.comparison?.if_baseline_order[strategy];
+  const miss = kept ? (kept.expected_shortage.scenario ?? 0) - (kept.expected_shortage.baseline ?? 0) : 0;
+  const unsold = kept ? (kept.expected_leftover.scenario ?? 0) - (kept.expected_leftover.baseline ?? 0) : 0;
+  return (
+    <section className="section">
+      <h2>{t("inv.whatif.title")}</h2>
+      <p className="muted">{t("inv.whatif.lede")}</p>
+      <div className="toolbar" role="group" aria-label={t("inv.whatif.title")}>
+        {(Object.keys(CHANGES) as Change[]).filter((k) => !locked || CHANGES[k].recorded).map((k) => (
+          <button key={k} className={`btn ${pick === k ? "primary" : ""}`} aria-pressed={pick === k} onClick={() => setPick(pick === k ? null : k)}>{t(`inv.wi.${k}`)}</button>
+        ))}
+      </div>
+      {pick && res.error && <ErrorBox problem={res.error} onRetry={res.reload} />}
+      {pick && !run && !res.error && <Loading />}
+      {pick && run && s && (
+        <div className="whatif-answer" role="status">
+          {s.error ? <p className="note-box">{say(s.error, "problem")}</p> : order && order.baseline != null && order.scenario != null ? (
+            <>
+              <p className="headline-sm">{t("inv.wi.order", { scenario: num(order.scenario), base: num(order.baseline), change: order.delta_pct == null ? "" : `${order.delta_pct > 0 ? "+" : order.delta_pct < 0 ? "−" : ""}${pct(Math.abs(order.delta_pct))}` })}</p>
+              <p>{miss > 0.5 && miss >= unsold ? t("inv.wi.miss", { n: num(miss) }) : unsold > 0.5 ? t("inv.wi.left", { n: num(unsold) }) : t("inv.wi.same")}</p>
+              <p className="fine">{t("inv.wi.note")}</p>
+            </>
+          ) : null}
+        </div>
+      )}
+      {!locked && <p><button className="btn link" onClick={advanced}>{t("inv.wi.advanced")}</button></p>}
+    </section>
+  );
+}
+
 function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios" | "backtest") => void }) {
   const { dataset, overview } = useSession();
   const { t, n } = useLang();
@@ -56,7 +105,7 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
   const ok = r ? r.items.filter((i) => i.status === "ok") : [];
   const total = r?.totals[strategy];
   // Without costs every item gets the same safety level, so every item has the same risk and the column says nothing: then it is hidden and the biggest orders come first.
-  // With costs the risk differs between items, and the items most likely to run out come first.
+  // With costs and stock the risk differs between items, and the items most likely to run out come first.
   const risks = r ? r.items.map((i) => i.by_strategy[strategy]?.p_stockout).filter((x): x is number => x !== undefined) : [];
   const varied = risks.length > 1 && Math.max(...risks) - Math.min(...risks) >= 0.02;
   const sorted = r ? [...r.items].sort((a, b) => (varied ? (b.by_strategy[strategy]?.p_stockout ?? -1) - (a.by_strategy[strategy]?.p_stockout ?? -1) : (b.by_strategy[strategy]?.order ?? -1) - (a.by_strategy[strategy]?.order ?? -1))) : [];
@@ -71,66 +120,10 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
       {illustrative && <p className="note-box" role="note">{t("inv.illustrative")}</p>}
 
       <section className="section">
-        <h2>{t("inv.step.supply")}</h2>
         <div className="toolbar" style={{ alignItems: "start" }}>
-          {mode === "periodic_review" ? (
-            <>
-              <Num label={t("inv.f.lead")} value={form.lead} onChange={set("lead")} disabled={locked} />
-              <Num label={t("inv.f.review")} value={form.review} onChange={set("review")} disabled={locked} placeholder="7" />
-            </>
-          ) : (
-            <Num label={t("inv.f.period")} value={form.period} onChange={set("period")} disabled={locked} />
-          )}
+          {mode === "periodic_review" ? <Num label={t("inv.f.lead")} value={form.lead} onChange={set("lead")} disabled={locked} /> : <Num label={t("inv.f.period")} value={form.period} onChange={set("period")} disabled={locked} />}
         </div>
         {guess && !locked && <p className="note-box" role="note">{t("inv.guess", { lead: form.lead, review: form.review })}</p>}
-        {!locked && (
-          <p>
-            {hasFile && <><button className="btn primary" onClick={fillFromFile}>{t("inv.fromfile")}</button>{" "}</>}
-            <button className="btn link" onClick={clear}>{t("inv.clear")}</button>
-          </p>
-        )}
-        {fromFile && <p className="note-box" role="note">{t("inv.fromfile.note", { items: fromFile.items, price: t(`inv.fromfile.${fromFile.price}`, { what: t("inv.f.price") }), cost: t(`inv.fromfile.${fromFile.cost}`, { what: t("inv.f.cost") }) })}</p>}
-
-        <details className="more">
-          <summary>{t("inv.more.details")}</summary>
-          <p className="fine">{t("inv.more.costs.lede")}</p>
-          {!locked && <p><button className="btn" onClick={fillExample}>{t("inv.example")}</button></p>}
-          <div className="seg" role="radiogroup" aria-label={t("inv.mode")} style={{ marginBottom: "0.8rem" }}>
-            {(["periodic_review", "single_period"] as const).map((m) => (
-              <label key={m} className={mode === m ? "on" : ""}><input type="radio" name="inv-mode" checked={mode === m} disabled={locked} onChange={() => setMode(m)} />{t(`inv.mode.${m}`)}</label>
-            ))}
-          </div>
-          <div className="toolbar" style={{ alignItems: "start" }}>
-            {mode === "single_period" && <Num label={t("inv.f.salvage")} value={form.salvage} onChange={set("salvage")} disabled={locked} />}
-            <Num label={t("inv.f.price")} value={form.price} onChange={set("price")} disabled={locked} />
-            <Num label={t("inv.f.cost")} value={form.cost} onChange={set("cost")} disabled={locked} />
-            <Num label={t("inv.f.holding")} value={form.holding} onChange={set("holding")} disabled={locked} />
-            <Num label={t("inv.f.penalty")} value={form.penalty} onChange={set("penalty")} disabled={locked} />
-            <Num label={t("inv.f.service")} value={form.service} onChange={set("service")} disabled={locked} placeholder="95" />
-            <Num label={t("inv.f.moq")} value={form.moq} onChange={set("moq")} disabled={locked} />
-            <Num label={t("inv.f.multiple")} value={form.multiple} onChange={set("multiple")} disabled={locked} />
-          </div>
-          <h3>{t("inv.more.stock")}</h3>
-          <p className="muted">{t("inv.stock.lede")}</p>
-          <div className="table-wrap" tabIndex={0} role="region" aria-label={t("inv.stock")}>
-            <table>
-              <thead><tr><th scope="col">{t("score.items.item")}</th><th scope="col">{t("inv.col.onhand")}</th><th scope="col">{t("inv.col.onorder")}</th></tr></thead>
-              <tbody>
-                {(overview?.series ?? []).map((s) => (
-                  <tr key={s.id}>
-                    <th scope="row">{s.id}</th>
-                    {(["on_hand", "on_order"] as const).map((f) => (
-                      <td key={f}>
-                        <input className="cell" type="text" inputMode="decimal" disabled={locked} aria-label={`${s.id}: ${t(f === "on_hand" ? "inv.col.onhand" : "inv.col.onorder")}`}
-                          value={stock[s.id]?.[f] ?? ""} onChange={(e) => { const v = e.target.value; setStock((x) => ({ ...x, [s.id]: { ...(x[s.id] ?? { on_hand: "", on_order: "" }), [f]: v } })); }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
       </section>
 
       {!body && <p className="note-box">{t("inv.hint")}</p>}
@@ -143,19 +136,8 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
             <h2>{t("inv.answer.title")}</h2>
             {ok.length === 0 ? <p className="note-box">{t("inv.limited")}</p> : (
               <>
-                <div className="seg" role="radiogroup" aria-label={t("inv.care")} style={{ marginBottom: "0.5rem" }}>
-                  {OPTION_KEYS.map((k) => (
-                    <label key={k} className={k === strategy ? "on" : ""}><input type="radio" name="inv-option" checked={k === strategy} onChange={() => setStrategy(k)} />{t(`inv.opt.${k}`)}</label>
-                  ))}
-                </div>
-                <p className="fine">{t(`inv.opt.${strategy}.desc`)}</p>
-                <div className="bigstats">
-                  <div className="bigstat"><span className="option-big">{num(total?.order)}</span><span>{t("inv.big.order", { count: n("unit.item", ok.length), days: n("unit.day", r.window_days) })}</span></div>
-                  <div className="bigstat"><span className="option-big">{pct(r.levels[strategy])}</span><span>{t("inv.big.chance")}</span></div>
-                </div>
-
-                <h3>{t("inv.list.title")}</h3>
-                <p className="muted">{t(varied ? "inv.list.lede" : "inv.list.lede_size")}</p>
+                <p className="headline-sm">{t("inv.answer2", { total: num(total?.order), count: n("unit.item", ok.length), days: n("unit.day", r.window_days) })}</p>
+                <p className="muted">{t("inv.answer2.chance", { chance: pct(r.levels[strategy]) })}</p>
                 {r.items.length > SHOWN && (
                   <label className="field" style={{ maxWidth: "20rem" }}><span>{t("inv.search")}</span><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
                 )}
@@ -190,26 +172,83 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
               </>
             )}
           </section>
-          {!locked && ok.length > 0 && (
-            <details className="more">
-              <summary>{t("inv.record.title")}</summary>
-              <RecordDecision body={body} items={r.items} strategy={strategy} />
-            </details>
-          )}
-          <details className="more">
-            <summary>{t("inv.details")}</summary>
-            <Results r={r} strategy={strategy} setStrategy={setStrategy} n={n} />
-          </details>
+          {ok.length > 0 && <QuickWhatIf body={body} strategy={strategy} locked={locked} advanced={() => openTool("scenarios")} />}
         </>
       )}
 
-      <section className="section">
-        <h2>{t("inv.tools")}</h2>
-        <p className="toolbar">
-          <button className="btn" onClick={() => openTool("scenarios")}>{t("inv.tools.scenarios")}</button>
-          <button className="btn" onClick={() => openTool("backtest")}>{t("inv.tools.backtest")}</button>
-        </p>
-      </section>
+      <details className="more">
+        <summary>{t("inv.settings")}</summary>
+        <div className="toolbar" style={{ alignItems: "start" }}>
+          {mode === "periodic_review" && <Num label={t("inv.f.review")} value={form.review} onChange={set("review")} disabled={locked} placeholder="7" />}
+        </div>
+        <fieldset className="plain-fieldset">
+          <legend>{t("inv.care")}</legend>
+          <div className="seg" role="radiogroup" aria-label={t("inv.care")}>
+            {OPTION_KEYS.map((k) => (
+              <label key={k} className={k === strategy ? "on" : ""}><input type="radio" name="inv-option" checked={k === strategy} onChange={() => setStrategy(k)} />{t(`inv.opt.${k}`)}</label>
+            ))}
+          </div>
+          <p className="fine">{t(`inv.opt.${strategy}.desc`)}</p>
+        </fieldset>
+        {!locked && (
+          <p>
+            {hasFile && <><button className="btn primary" onClick={fillFromFile}>{t("inv.fromfile")}</button>{" "}</>}
+            <button className="btn" onClick={fillExample}>{t("inv.example")}</button>{" "}
+            <button className="btn link" onClick={clear}>{t("inv.clear")}</button>
+          </p>
+        )}
+        {fromFile && <p className="note-box" role="note">{t("inv.fromfile.note", { items: fromFile.items, price: t(`inv.fromfile.${fromFile.price}`, { what: t("inv.f.price") }), cost: t(`inv.fromfile.${fromFile.cost}`, { what: t("inv.f.cost") }) })}</p>}
+        <h3>{t("inv.more.details")}</h3>
+        <p className="fine">{t("inv.more.costs.lede")}</p>
+        <div className="seg" role="radiogroup" aria-label={t("inv.mode")} style={{ marginBottom: "0.8rem" }}>
+          {(["periodic_review", "single_period"] as const).map((m) => (
+            <label key={m} className={mode === m ? "on" : ""}><input type="radio" name="inv-mode" checked={mode === m} disabled={locked} onChange={() => setMode(m)} />{t(`inv.mode.${m}`)}</label>
+          ))}
+        </div>
+        <div className="toolbar" style={{ alignItems: "start" }}>
+          {mode === "single_period" && <Num label={t("inv.f.salvage")} value={form.salvage} onChange={set("salvage")} disabled={locked} />}
+          <Num label={t("inv.f.price")} value={form.price} onChange={set("price")} disabled={locked} />
+          <Num label={t("inv.f.cost")} value={form.cost} onChange={set("cost")} disabled={locked} />
+          <Num label={t("inv.f.holding")} value={form.holding} onChange={set("holding")} disabled={locked} />
+          <Num label={t("inv.f.penalty")} value={form.penalty} onChange={set("penalty")} disabled={locked} />
+          <Num label={t("inv.f.service")} value={form.service} onChange={set("service")} disabled={locked} placeholder="95" />
+          <Num label={t("inv.f.moq")} value={form.moq} onChange={set("moq")} disabled={locked} />
+          <Num label={t("inv.f.multiple")} value={form.multiple} onChange={set("multiple")} disabled={locked} />
+        </div>
+        <h3>{t("inv.more.stock")}</h3>
+        <p className="muted">{t("inv.stock.lede")}</p>
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={t("inv.stock")}>
+          <table>
+            <thead><tr><th scope="col">{t("score.items.item")}</th><th scope="col">{t("inv.col.onhand")}</th><th scope="col">{t("inv.col.onorder")}</th></tr></thead>
+            <tbody>
+              {(overview?.series ?? []).map((s) => (
+                <tr key={s.id}>
+                  <th scope="row">{s.id}</th>
+                  {(["on_hand", "on_order"] as const).map((f) => (
+                    <td key={f}>
+                      <input className="cell" type="text" inputMode="decimal" disabled={locked} aria-label={`${s.id}: ${t(f === "on_hand" ? "inv.col.onhand" : "inv.col.onorder")}`}
+                        value={stock[s.id]?.[f] ?? ""} onChange={(e) => { const v = e.target.value; setStock((x) => ({ ...x, [s.id]: { ...(x[s.id] ?? { on_hand: "", on_order: "" }), [f]: v } })); }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {body && r && !locked && ok.length > 0 && (
+          <>
+            <h3>{t("inv.record.title")}</h3>
+            <RecordDecision body={body} items={r.items} strategy={strategy} />
+          </>
+        )}
+        {body && r && (
+          <>
+            <h3>{t("inv.details")}</h3>
+            <Results r={r} strategy={strategy} setStrategy={setStrategy} n={n} />
+          </>
+        )}
+        <p><button className="btn" onClick={() => openTool("backtest")}>{t("inv.tools.backtest")}</button></p>
+      </details>
     </>
   );
 }
