@@ -9,7 +9,7 @@ import numpy as np
 
 from hindsight.app.service import AUTO, REFERENCE, Analysis, _calendars
 from hindsight.monitoring import drift
-from hindsight.monitoring.rules import ORDER, Thresholds, grade_high, grade_low, worst
+from hindsight.monitoring.rules import ORDER, Thresholds, both, grade_high, grade_low, robust_z, worst
 from hindsight.replay.engine import Replay, run_replay
 from hindsight.replay.metrics import paired_difference_ci
 from hindsight.replay.ml import GlobalLightGBM
@@ -38,6 +38,15 @@ def _sums(x: np.ndarray, idx: np.ndarray) -> float:
     return float(x[idx].sum()) if len(idx) else 0.0
 
 
+def _windows(num: np.ndarray, den: np.ndarray, hist: np.ndarray, size: int) -> np.ndarray:
+    """The ratio sum(num) / sum(den) over every run of `size` consecutive earlier replay dates (all inside `hist`, so nothing recent leaks in)."""
+    if len(hist) < size:
+        return np.array([])
+    cn, cd = np.concatenate([[0.0], np.cumsum(num[hist])]), np.concatenate([[0.0], np.cumsum(den[hist])])
+    n, d = cn[size:] - cn[:-size], cd[size:] - cd[:-size]
+    return np.where(d > 0, n / np.where(d > 0, d, 1.0), np.nan)
+
+
 def _signals(T: Thresholds, e, t, b, ref_e, hit, avail, psi_value, rec, hist, is_ref: bool) -> list[dict]:
     """The five signals for one pool of replay dates. e, t, b, ref_e, hit, avail are 1-D over the known dates (already summed over items
     and days ahead): error of the method, sales, signed error, error of the simple rule, ranges that held, ranges that existed."""
@@ -45,17 +54,24 @@ def _signals(T: Thresholds, e, t, b, ref_e, hit, avail, psi_value, rec, hist, is
     w_rec = _ratio(_sums(e, rec), _sums(t, rec))
     w_his = _ratio(_sums(e, hist), _sums(t, hist))
     ratio = _ratio(w_rec, w_his) if enough else None
-    out = [{"key": "accuracy", "value": _r(ratio), "status": grade_high(ratio, T.wape_ratio_watch, T.wape_ratio_action), "watch": T.wape_ratio_watch, "action": T.wape_ratio_action,
-            "recent": _r(w_rec), "earlier": _r(w_his)}]
+    R, mw = len(rec), T.min_windows
+    z_acc = robust_z(w_rec, _windows(e, t, hist, R), True, mw) if enough else None
+    out = [{"key": "accuracy", "value": _r(ratio), "status": both(grade_high(ratio, T.wape_ratio_watch, T.wape_ratio_action), z_acc, T), "watch": T.wape_ratio_watch, "action": T.wape_ratio_action,
+            "recent": _r(w_rec), "earlier": _r(w_his), "z": _r(z_acc, 2)}]
     if not is_ref:
         ref_rec = _ratio(_sums(ref_e, rec), _sums(t, rec))
         vs = _ratio(w_rec, ref_rec) if enough else None
-        out.append({"key": "vs_simple", "value": _r(vs), "status": grade_high(vs, T.vs_simple_watch, T.vs_simple_action), "watch": T.vs_simple_watch, "action": T.vs_simple_action,
-                    "recent": _r(w_rec), "simple_rule": _r(ref_rec)})
+        with np.errstate(divide="ignore", invalid="ignore"):
+            hist_vs = _windows(e, t, hist, R) / _windows(ref_e, t, hist, R) if len(hist) >= R else np.array([])
+        z_vs = robust_z(vs, hist_vs, True, mw) if enough else None
+        out.append({"key": "vs_simple", "value": _r(vs), "status": both(grade_high(vs, T.vs_simple_watch, T.vs_simple_action), z_vs, T), "watch": T.vs_simple_watch, "action": T.vs_simple_action,
+                    "recent": _r(w_rec), "simple_rule": _r(ref_rec), "z": _r(z_vs, 2)})
     bias = _ratio(abs(_sums(b, rec)), _sums(t, rec))
-    out.append({"key": "bias", "value": _r(_ratio(_sums(b, rec), _sums(t, rec))), "status": grade_high(bias if enough else None, T.bias_watch, T.bias_action), "watch": T.bias_watch, "action": T.bias_action})
+    z_bias = robust_z(bias, np.abs(_windows(b, t, hist, R)), True, mw) if enough else None
+    out.append({"key": "bias", "value": _r(_ratio(_sums(b, rec), _sums(t, rec))), "status": both(grade_high(bias if enough else None, T.bias_watch, T.bias_action), z_bias, T), "watch": T.bias_watch, "action": T.bias_action, "z": _r(z_bias, 2)})
     cov = _ratio(_sums(hit, rec), _sums(avail, rec))
-    out.append({"key": "coverage", "value": _r(cov), "status": grade_low(cov if enough else None, T.coverage_watch, T.coverage_action), "watch": T.coverage_watch, "action": T.coverage_action})
+    z_cov = robust_z(cov, _windows(hit, avail, hist, R), False, mw) if enough else None
+    out.append({"key": "coverage", "value": _r(cov), "status": both(grade_low(cov if enough else None, T.coverage_watch, T.coverage_action), z_cov, T), "watch": T.coverage_watch, "action": T.coverage_action, "z": _r(z_cov, 2)})
     out.append({"key": "drift", "value": _r(psi_value), "status": grade_high(psi_value, T.psi_watch, T.psi_action, can_act=False), "watch": T.psi_watch, "action": T.psi_action})
     return out
 
@@ -123,7 +139,7 @@ def health(a: Analysis, method: str = AUTO, T: Thresholds | None = None, day: in
             "counts": counts, "items": items, "timeline": timeline, "thresholds": T.as_dict(),
             "windows": {"n_known": int(len(known)), "n_recent": int(len(rec)), "n_earlier": int(len(hist)),
                         "recent_from": str(d.dates[int(r.origins[rec[0]])].date()) if len(rec) else None, "recent_to": str(d.dates[int(r.origins[rec[-1]]) + h].date()) if len(rec) else None},
-            "notes": ["not_prediction", "conventions", "overlap", "drift_info_only", "sales_not_demand"]}
+            "notes": ["not_prediction", "conventions", "overlap", "drift_info_only", "usual_for_item", "sales_not_demand"]}
 
 
 def challenger(a: Analysis, method: str = AUTO, k: int = CHALLENGER_ORIGINS) -> dict:

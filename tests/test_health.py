@@ -10,18 +10,18 @@ from hindsight.app import health_service, service
 from hindsight.app.api import create_app
 from hindsight.data.sales import SalesData
 from hindsight.monitoring import drift
-from hindsight.monitoring.rules import Thresholds, grade_high, grade_low, worst
+from hindsight.monitoring.rules import Thresholds, both, grade_high, grade_low, robust_z, worst
 from test_service_api import upload, wait, weekly_csv
 
 SHAPE = np.array([1.0, 0.8, 0.8, 0.9, 1.1, 1.8, 1.6])
 
 
-def synth(n: int, shift_at: int | None = None, factor: float = 1.5, seed: int = 0, items=("Milk", "Bread")) -> SalesData:
+def synth(n: int, shift_at: int | None = None, factor: float = 1.5, seed: int = 0, items=("Milk", "Bread"), noise: float = 0.08) -> SalesData:
     """Weekly-pattern sales with noise. If `shift_at` is given, the FIRST item changes level from that day on; the others are untouched."""
     rng = np.random.default_rng(seed)
     rows = []
     for j in range(len(items)):
-        base = 40 * (j + 1) * SHAPE[np.arange(n) % 7] * (1 + 0.08 * rng.standard_normal(n))
+        base = 40 * (j + 1) * SHAPE[np.arange(n) % 7] * (1 + noise * rng.standard_normal(n))
         if j == 0 and shift_at is not None:
             base[shift_at:] *= factor
         rows.append(np.maximum(0, np.rint(base)))
@@ -63,6 +63,23 @@ def test_grading_rules():
     assert [grade_low(v, 0.7, 0.55) for v in (0.8, 0.6, 0.5)] == ["healthy", "watch", "action"]
     assert grade_high(None, 1, 2) == "unknown" and grade_high(float("nan"), 1, 2) == "unknown" and grade_low(None, 1, 2) == "unknown"
     assert worst(["healthy", "unknown", "watch"]) == "watch" and worst(["unknown"]) == "unknown" and worst(["healthy", "action", "watch"]) == "action"
+
+
+def test_robust_z_measures_how_unusual_a_value_is_for_that_item():
+    earlier = np.r_[np.full(30, 0.30), np.full(30, 0.34)] + np.linspace(-0.01, 0.01, 60)
+    assert robust_z(0.32, earlier, True) == pytest.approx(0, abs=0.5)
+    assert robust_z(0.60, earlier, True) > 5 and robust_z(0.60, earlier, False) < -5  # direction: higher is worse unless told otherwise
+    assert robust_z(0.3, np.arange(10.0), True) is None  # too few earlier windows to know what is usual
+    assert robust_z(0.3, np.full(40, 0.3), True) is None  # earlier values that never vary give no scale
+    assert robust_z(None, earlier, True) is None
+
+
+def test_a_signal_fires_only_if_it_is_past_the_limit_and_unusual_for_the_item():
+    T = Thresholds()
+    assert both("action", 5.0, T) == "action" and both("action", 2.5, T) == "watch" and both("action", 1.0, T) == "healthy"
+    assert both("watch", 9.0, T) == "watch"  # an unusual value that is still within the fixed limit does not fire
+    assert both("healthy", 9.0, T) == "healthy" and both("unknown", 9.0, T) == "unknown"
+    assert both("action", None, T) == "action"  # cannot judge what is usual: the fixed limit alone decides, as before
 
 
 # ---- on a real replay --------------------------------------------------------------------------------------------------------------
@@ -143,6 +160,27 @@ def test_a_stable_series_rarely_raises_action():
     assert statuses.count("action") / len(statuses) < 0.10 and statuses.count("watch") / len(statuses) < 0.35, counts
 
 
+def test_noisy_items_raise_far_fewer_alarms_than_the_fixed_limits_alone():
+    """Items with a lot of day-to-day noise move past fixed limits all the time. Judging against each item's own earlier ups and downs should quiet that, and must not
+    quiet everything: the injected-change test above still passes with the default rule."""
+    a = analyse(synth(700, seed=7, noise=0.45))
+    fixed_only = Thresholds(z_watch=-1e9, z_action=-1e9)
+
+    def alarms(T):
+        sts = [i["status"] for day in range(300, 690, 5) for i in health_service.health(a, T=T, day=day)["items"]]
+        return sum(x != "healthy" for x in sts) / len(sts), sum(x == "action" for x in sts) / len(sts)
+
+    new, old = alarms(Thresholds()), alarms(fixed_only)
+    assert new[0] < old[0] and new[1] <= old[1], (new, old)
+
+
+def test_signals_report_how_unusual_they_are(stable):
+    h = health_service.health(stable)
+    sig = {s["key"]: s for s in h["items"][0]["signals"]}
+    assert all("z" in sig[k] for k in ("accuracy", "vs_simple", "bias", "coverage")) and "usual_for_item" in h["notes"]
+    assert {"z_watch", "z_action", "min_windows"} <= set(h["thresholds"])
+
+
 # ---- API ---------------------------------------------------------------------------------------------------------------------------
 @pytest.fixture(scope="module")
 def served():
@@ -159,7 +197,7 @@ def test_health_endpoint_and_threshold_overrides(served):
     assert r.status_code == 200, r.text
     base = r.json()
     assert base["overall"]["status"] in ("healthy", "watch", "action", "unknown") and "not_prediction" in base["notes"]
-    strict = client.post(f"/api/datasets/{ds}/health", json={"thresholds": {"wape_ratio_watch": 0.01, "wape_ratio_action": 0.02}}).json()
+    strict = client.post(f"/api/datasets/{ds}/health", json={"thresholds": {"wape_ratio_watch": 0.01, "wape_ratio_action": 0.02, "z_watch": -1e9, "z_action": -1e9}}).json()
     assert strict["overall"]["status"] == "action" and strict["thresholds"]["wape_ratio_watch"] == 0.01
     assert client.post(f"/api/datasets/{ds}/health", json={"thresholds": {"nonsense": 1}}).status_code == 422
     assert client.post(f"/api/datasets/{ds}/health", json={"method": "no such method"}).status_code == 422

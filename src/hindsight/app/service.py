@@ -283,6 +283,15 @@ def stage(a: Analysis, series: str | int | None = None, method: str = AUTO, leve
             "coverage_80": float(tr["hit"][tr["have"] & (np.arange(d.n_days) >= first_day)].mean()) if (tr["have"][first_day:]).any() else None}
 
 
+def _explanation(a: Analysis, f, hist: np.ndarray):
+    """The reasons for every item and forecast day, worked out once per analysis: they depend on nothing but the data, and working them out for all
+    items takes seconds, which a page asking about one item on one day should not repeat."""
+    cache = a.__dict__.setdefault("_explain_cache", {})
+    if "exp" not in cache:
+        cache["exp"] = explain_forecast(f, hist, a.data.dates, a.settings.horizon, a.data.ids)
+    return cache["exp"]
+
+
 def next_view(a: Analysis, series: str | int | None = None, method: str = AUTO, level: float = 0.8, reasons_for_day: int = 0, history_days: int = 60) -> dict:
     si = _series_index(a, series)
     d = a.data
@@ -299,7 +308,7 @@ def next_view(a: Analysis, series: str | int | None = None, method: str = AUTO, 
     if f is not None and picked == "learning model":
         hist = np.asarray(d.values, dtype=float).copy()
         day = int(np.clip(reasons_for_day, 0, a.settings.horizon - 1))
-        exp = explain_forecast(f, hist, d.dates, a.settings.horizon, d.ids)
+        exp = _explanation(a, f, hist)
         out["reasons"] = {"day": day, "date": str(exp.dates[day].date()), "forecast": float(exp.forecast[si, day]), "items": exp.table(si, day),
                           "note": "These are the inputs the model leaned on, not proven causes."}
     return out

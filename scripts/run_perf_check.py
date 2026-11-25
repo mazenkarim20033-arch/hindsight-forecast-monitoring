@@ -1,6 +1,6 @@
 """How long do the decision features take? Writes reports/performance.md.
 
-Two cases: the 10-store M5 sample (full analysis, loaded from the cache the app keeps) and a made-up file of 100 items over 500 days (the largest
+Two cases: the 100-item M5 sample (full analysis, loaded from the cache the app keeps) and a made-up file of 100 items over 500 days (the largest
 the app accepts; a simple-tier analysis, since 500 days is under two years). Each call is timed three times and the median is reported. This
 measures the computer it runs on: read the numbers as orders of magnitude."""
 import sys

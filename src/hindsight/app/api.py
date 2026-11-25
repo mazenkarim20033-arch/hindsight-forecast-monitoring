@@ -114,12 +114,12 @@ def _describe(data: SalesData, report, det) -> tuple[dict, dict]:
 
 
 def load_sample() -> tuple[SalesData, dict, dict]:
-    raw = (SAMPLE_DIR / "m5_stores.csv").read_bytes()
-    data, report, det = read_sales_file(raw, "m5_stores.csv")
+    raw = (SAMPLE_DIR / "m5_items.csv").read_bytes()
+    data, report, det = read_sales_file(raw, "m5_items.csv")
     cal = pd.read_csv(SAMPLE_DIR / "m5_events.csv")
     cal["date"] = pd.to_datetime(cal["date"])
     data.calendar = cal.set_index("date").reindex(data.dates).reset_index().rename(columns={"index": "date"})
-    data.source = "M5 (Walmart), CC BY 4.0: 10 US stores"
+    data.source = "M5 (Walmart), CC BY 4.0: 100 items, each added up over the 10 stores"
     rep, d = _describe(data, report, det)
     return data, rep, d
 
@@ -184,7 +184,7 @@ def create_app(serve_web: bool = True, owner_key: str | None = None, audit_db: P
     @api.post("/datasets/sample")
     def sample():
         data, rep, d = load_sample()
-        e = Entry(uuid.uuid4().hex[:12], "Sample: 10 Walmart stores (public M5 data)", None, data, rep, d, is_sample=True)
+        e = Entry(uuid.uuid4().hex[:12], "Sample: 100 Walmart items (public M5 data)", None, data, rep, d, is_sample=True)
         datasets[e.id] = e
         return _summary(e)
 

@@ -20,7 +20,7 @@ Layers depend downward only: `inventory/` knows nothing about forecasting or fil
 ## How the pieces connect
 File -> onboarding -> cleaned daily sales -> replay and forecast. The forecast feeds the optimizer (and, through it, scenarios and the decision log) and the health monitor. Health is shown on the dashboard and above the order advice; the decision log stores the health of the moment. An outcome is worked out from a later version of the same file, accepted only if its history up to the decision day has the recorded fingerprint. The browser never supplies numbers the server then trusts: the server recomputes recommendations, scenarios and decisions.
 
-Menu: Dashboard, Stores, Orders, Reliability, Decision log, Data, and More (holiday effects, replay lab, scorecard).
+Menu: Dashboard, Items, Orders, Reliability, Decision log, Data, and More (holiday effects, replay lab, scorecard).
 
 ## Planned (not built)
 The final presentation (Milestone 7).

@@ -33,15 +33,15 @@ Let `D` be demand over the cover period, `Cu` the cost of ordering one unit too 
 Hindsight's forecaster gives a point forecast, not a full distribution. The demand outcomes are the live forecast of the cover period multiplied by earlier ratios of actual sales to forecast for periods of the same length (the newest 120, at least 20 needed, only periods that had already finished). This is an **empirical approximation of the spread**, not a fitted model. The screen therefore shows a calibration table: on the replayed past, how often did demand stay within each order-up-to level?
 
 ### Evaluation (actual results)
-`scripts/run_inventory_check.py` on the 10-store M5 sample (141 scored dates × 10 stores = 1,410 cases per row; `reports/inventory_m5.md`):
+`scripts/run_inventory_check.py` on the 100-item M5 sample (141 scored dates x 100 items = 14,100 cases per row; `reports/inventory_m5.md`):
 
 | Cover | Target 80% | 90% | 95% | 98% |
 |---|---|---|---|---|
-| 3 days | 77.6% | 88.9% | 94.5% | 98.3% |
-| 10 days | 76.5% | 87.6% | 93.4% | 97.8% |
-| 28 days | 74.3% | 85.6% | 91.5% | 96.0% |
+| 3 days | 78.9% | 89.0% | 94.1% | 97.3% |
+| 10 days | 78.5% | 88.8% | 93.6% | 97.1% |
+| 28 days | 77.8% | 87.6% | 92.4% | 95.7% |
 
-The target is slightly **missed**: the real service level is 0 to 6 points below it, and the gap widens with the cover period. The cause is not investigated here (sales growth over the period is one candidate). Read a displayed 95% as "about 92 to 95% on this data". Cases overlap in time, so small gaps are within noise. Store-level data only; not checked on item-level data with many zero days.
+The target is slightly **missed**: the real service level is 0.7 to 2.6 points below it, and the gap widens with the cover period. The cause is not investigated here. Read a displayed 95% as "about 92 to 94% on this data". Cases overlap in time, so small gaps are within noise. Items are products added up over ten stores, each sold on at least 80% of days; single items in single stores (68% zero days) were not checked.
 
 Tests (`tests/test_inventory.py`, 26): quantile result against hand-computed values and brute force; a normal distribution against its closed form; higher underage cost gives more stock; inventory position netting; minimum order and multiples; zero and constant demand; missing and unusable inputs refused with a code; strategy ordering on a real replay; lead time monotonicity; no change to forecasts by asking.
 
@@ -110,20 +110,22 @@ The status is the worst of the four error-based checks. All limits are in `monit
 
 ### Design decisions (for interviews)
 - **As of a day, leak-free by construction.** `health(..., day=D)` uses only replay dates whose whole forecast horizon had been observed by day D. A test rewrites everything after D and checks the answer does not move. The same function can therefore be run on every past day to measure how often it would have fired.
-- **Drift does not set the status.** The data changing is not a failure; the forecast failing is. PSI limits (0.10 / 0.25) are conventions from credit scoring. On M5 they fire on 70% of store-days because sales grow, and on 76% of those the error-based status was healthy. So PSI and KS are measured and shown but informational. This was decided from that evidence (`reports/health_m5.md`).
+- **Drift does not set the status.** The data changing is not a failure; the forecast failing is. PSI limits (0.10 / 0.25) are conventions from credit scoring. On the M5 items they fire on 64% of item-days, and on 76% of those the error-based status was healthy. So PSI and KS are measured and shown but informational. This was decided from that evidence (`reports/health_m5.md`).
+- **Noise-aware signals (added when the demo moved from stores to single items).** With fixed limits alone the monitor called only 48% of the 100 items' days healthy (31% watch, 21% action), because single-item sales are noisy and an 8-date window moves past a fixed ratio all the time. Each of accuracy, against-the-simple-rule, bias and range coverage must now also be more than 2 (watch) or 3 (action) robust deviations (median and scaled MAD) worse than the same item's own earlier windows of the same length, taken only from before the recent window; with fewer than 20 earlier windows the fixed limit alone decides. The 2 and 3 are conventions chosen before measuring, and the fixed-only result stays in the report.
 - **One threshold was revised after a first look, and it is said so.** "Worse than the simple rule" flagged at 1.00 on stable synthetic data, which is noise when the method and the rule are near-identical; it now flags at 1.10 and 1.30. No other limit was changed.
 - **Challenger, never deployed.** The test retrains the same learning model on only the latest 365 days (refit every 14 days), replays the last 12 dates against the current method through the same replay engine (so it sees only what was known then), and reports the paired WAPE difference with a bootstrap interval. The verdict is `promote_candidate` only if the whole interval favours the challenger; otherwise `keep_current` or `inconclusive`. `deployed` is always false: Hindsight has no mechanism to switch methods by itself.
 
 ### Evaluation (actual results, `scripts/run_health_check.py`, written to `reports/health_m5.md`)
-- **M5 sample**, 1,460 store-days (every 5th day of the last 730): 76.3% healthy, 19.0% watch, 4.7% action. M5 has no known broken period, so these are shares of alarms, not proven false alarms.
-- **Injected change** (synthetic weekly data, one item, change on day 480, 12 seeds each). Sales +50%: caught in all 12, median 3 days (worst 6) to leave "healthy"; "action" in all 12 (median 6 days). Sales -30%: caught in all 12, median 4 days (worst 9); "action" in all 12 (median 9 days).
-- **Unchanged synthetic series** (12 seeds, 1,872 item-days): 89.9% healthy, 9.6% watch, 0.5% action.
+- **M5 sample**, 14,600 item-days (100 items, every 5th day of the last 730): 80.3% healthy, 9.6% watch, 10.1% action with the current rule; the fixed limits alone gave 48.2%, 31.1% and 20.7%. M5 has no known broken period, so these are shares of alarms, not proven false alarms.
+- **Injected change** (synthetic weekly data, one item, change on day 480, 12 seeds each). Sales +50%: caught in all 12, median 3 days (worst 6) to leave "healthy"; "action" in all 12 (median 6 days). Sales -30%: caught in all 12, median 6 days (worst 9); "action" in all 12 (median 9 days).
+- **Unchanged synthetic series** (12 seeds, 1,872 item-days): 93.3% healthy, 6.2% watch, 0.5% action.
 - **Tests** (`tests/test_health.py`, 14): PSI and KS on known distributions, ties and tiny samples; grading rules; drift never changes the status; nothing after the chosen day is used; unknown (not a guess) when history is short; an injected change caught within 45 days in 5 seeds while an unchanged item under a fixed method never reaches "action"; low rate of "action" on stable data; API and threshold overrides; challenger refused without two years of data; challenger evaluated on the past, never deployed, and leaving the analysis untouched.
-- **Challenger on M5** (12 dates): no clear difference (retrained 7.37% against current 7.41% error, interval -0.33 to +0.35 points): `inconclusive`.
+- **Challenger on the 100-item sample** (12 dates): no clear difference (retrained 28.95% against current 29.40% error, a gain of 0.45 points with a likely range of -0.03 to +0.97): inconclusive, keep the current method.
+- **Earlier, on the store-level sample** (12 dates): no clear difference (retrained 7.37% against current 7.41% error, interval -0.33 to +0.35 points): `inconclusive`.
 
 ### Limits
 - Synthetic data is easier than real sales; the detection numbers show the rules can notice a clear change, not that they will on a real shop.
-- About a quarter of M5 store-days are not healthy; some are probably real bad stretches (holidays), some noise. This was not separated.
+- About one in five M5 item-days is not healthy with the current rule (half with fixed limits alone); some are probably real bad stretches, some noise. This was not separated.
 - Replay dates overlap, so the recent window holds fewer independent results than eight. The challenger uses 12 dates: its interval is wide and a single test is weak evidence.
 - With "best method so far", one method is chosen for all items together, so a change in one item can make the others look worse (seen in testing).
 - Health is measured against recorded sales, not demand.
@@ -216,14 +218,14 @@ file -> Onboarding (columns, keys, duplicates, price/cost/stock, quality, adapte
 - **Health reaches the pages that rely on the forecast.** The dashboard has a "Is the forecast still reliable?" section; the order screen shows a caution when health is Watch or Action needed; the health page leads back to the orders.
 - **Onboarding feeds the optimizer.** "Use stock and prices from the file" fills per-item stock and, only if every item has the same one, price and cost.
 - **Scenarios reuse the optimizer, and the log reuses both.** A scenario's baseline is the plain recommendation; a decision can be recorded under a scenario; the log stores the health status of the moment and a fingerprint of the data.
-- **The menu is short:** Dashboard, Stores, Orders, Reliability, Decision log, Data, and a "More" menu holding Holiday effects, Replay lab and Scorecard. The old Stock planner is still reachable from "More tools" at the bottom of the Orders page ("Check how old ordering rules would have done"), and `/planner` still works.
+- **The menu is short:** Dashboard, Items, Orders, Reliability, Decision log, Data, and a "More" menu holding Holiday effects, Replay lab and Scorecard. The old Stock planner is still reachable from "More tools" at the bottom of the Orders page ("Check how old ordering rules would have done"), and `/planner` still works.
 
 ### Evaluation (actual results)
 - **One path through everything** (`tests/test_integration.py`): upload a priced file, save an adapter, run the forecast, plan orders with the file's stock (the inventory position equals the file's on-hand plus on-order exactly), run a scenario whose baseline equals the plain recommendation, read health as of the last day, hit the six older endpoints, record a decision (it repeats the optimizer's orders and carries the health status), load the same report with 40 more days (recognised by the adapter), save the outcome (real sales equal the sums from the file; stock available equals position plus order), and verify the log. It compares each step's numbers with another step's.
 - **Language parity** (`web/src/test/i18n.test.tsx`, existing): every English string has an Arabic one with the same blanks; it kept passing through all five features.
 - **Every screen in a real browser**, light and dark, automated accessibility audit (WCAG A/AA, contrast included): 10 pages plus the scenario and backtest tabs, no violations apart from two pre-existing header items (the brand link and the language button).
 - **Public demo mode** (recorded playback): all pages load; the recorded optimizer example, five recorded scenarios, recorded health and one recorded challenger test show; the decision log explains that it lives on the user's own computer instead of showing an error. Found and fixed while checking: the log page used to show a failure box in the demo.
-- **Speed** (`scripts/run_perf_check.py` -> `reports/performance.md`, median of three on the development computer): on the 10-store M5 sample an order recommendation takes 0.12 s, three scenarios 0.14 s, health 0.02 s, recording a decision 0.04 s, the challenger test 2.6 s. On a 100-item, 500-day file (the largest the app accepts): 0.95 s, 1.2 s, 0.12 s and 0.21 s; the analysis of that file takes about 11 s once. No optimisation was needed.
+- **Speed** (`scripts/run_perf_check.py` -> `reports/performance.md`, median of three on the development computer): on the 100-item M5 sample an order recommendation takes 1.1 s, three scenarios 1.4 s, health 0.14 s, recording a decision 0.22 s, the challenger test 7 s. On a made-up 100-item, 500-day file: 0.9 s, 1.2 s, 0.12 s and 0.21 s. The first analysis of the 100-item sample takes about four minutes (once; it is cached). No optimisation was needed, except that the per-item reasons are now worked out once per analysis instead of on every request.
 
 ### Limits
 - The integration test uses synthetic data; the browser sweeps use the M5 sample and made-up files. No real shop has used it yet.

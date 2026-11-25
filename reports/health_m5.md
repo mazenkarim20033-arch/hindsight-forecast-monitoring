@@ -1,12 +1,17 @@
 # Forecast health: how the rules behave
 
-## A. M5 sample (10 stores, every 5th day of the last 730 days, method: best method so far)
+## A. M5 sample (100 items, every 5th day of the last 730 days, method: best method so far)
 
-Store-days checked: 1460. Shares: {'healthy': 0.763, 'watch': 0.19, 'action': 0.047, 'unknown': 0.0}
+Item-days checked: 14600.
 
-## C. Demand drift on the same store-days
+- Current rule (past the fixed limit AND unusual for that item): {'healthy': 0.803, 'watch': 0.096, 'action': 0.101, 'unknown': 0.0}
+- Fixed limits alone (how the monitor first worked): {'healthy': 0.482, 'watch': 0.311, 'action': 0.207, 'unknown': 0.0}
 
-PSI above the conventional 0.25 limit on 1016 of 1460 store-days (70%); on 769 of those (76%) the status from error-based signals was healthy. That is why drift is shown but does not set the status.
+On single items the fixed limits fired on about half of all item-days, because item-level sales are noisy; judging each signal against that item's own earlier ups and downs is the change made after seeing that. M5 has no known broken period, so these are shares of alarms, not proven false alarms.
+
+## C. Demand drift on the same item-days
+
+PSI above the conventional 0.25 limit on 9344 of 14600 item-days (64%); on 7116 of those (76%) the status from error-based signals was healthy. Drift is shown but does not set the status.
 
 ## B. Injected change: sales rise 50% on day 480 of 640
 
@@ -14,10 +19,10 @@ Seeds: 12. Missed entirely: 0. Days until the item left 'healthy': median 3, wor
 
 ## B. Injected change: sales fall 30% on day 480 of 640
 
-Seeds: 12. Missed entirely: 0. Days until the item left 'healthy': median 4, worst 9. 'Action' reached in 12 of 12 seeds (median 9 days).
+Seeds: 12. Missed entirely: 0. Days until the item left 'healthy': median 6, worst 9. 'Action' reached in 12 of 12 seeds (median 9 days).
 
 ## B. Unchanged synthetic series (12 seeds, every 5th day from day 300)
 
-Item-days: 1872. Shares: {'healthy': 0.899, 'watch': 0.096, 'action': 0.005, 'unknown': 0.0}
+Item-days: 1872. Shares: {'healthy': 0.933, 'watch': 0.062, 'action': 0.005, 'unknown': 0.0}
 
 Caveat: synthetic data is easier than real sales. These numbers say the rules can notice a clear change and stay mostly quiet otherwise; they do not promise the same on a real shop.

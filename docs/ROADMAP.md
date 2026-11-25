@@ -10,8 +10,8 @@ Ordered by how much each item would raise trust in the product, not by how inter
 ## Soon (small, well-defined)
 4. **Per-item price and unit cost.** The optimizer takes one price and one cost. Onboarding already reads per-item values from a file; the arithmetic needs to use them.
 5. **Carry-over policy simulation.** Orders are judged one cover period at a time. A multi-period simulation would show the effect of stock carried between orders.
-6. **Item-level intermittent demand.** Evaluate ordering for items with mostly zero days (the M5 sample evaluation covers stores only) and, if needed, a different demand model for them.
-7. **Investigate the calibration gap.** Order service levels land 0 to 6 points under target and the gap grows with the cover period. Candidates include growth over the period; it was not examined.
+6. **Intermittent single items.** The bundled sample is 100 products that each sold on at least 80% of days. Evaluate forecasting and ordering for single items in single stores (68% zero days in M5) and, if needed, a different demand model for them.
+7. **Investigate the calibration gap.** Order service levels land 0.7 to 2.6 points under target on the item sample and the gap grows with the cover period. Candidates include growth over the period; it was not examined.
 8. **Per-item scenarios.** One factor applies to all items today.
 9. **Move the older routes out of `api.py`** into per-feature routers like the newer ones (deferred as a risky rewrite with no user-visible benefit).
 

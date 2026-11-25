@@ -173,7 +173,7 @@ def test_sample_loads_with_events_and_offers_the_event_calendar(client):
     r = client.post("/api/datasets/sample")
     assert r.status_code == 200
     s = r.json()
-    assert s["is_sample"] and s["n_series"] == 10 and s["n_days"] == 1941 and s["has_events"] and s["plan"]["tier"] == "full"
+    assert s["is_sample"] and s["n_series"] == 100 and s["n_days"] == 1941 and s["has_events"] and s["plan"]["tier"] == "full"
 
 
 def test_an_identical_analysis_is_loaded_from_the_cache_and_a_changed_one_is_not(tmp_path):

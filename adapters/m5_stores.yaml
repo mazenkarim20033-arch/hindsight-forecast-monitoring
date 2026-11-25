@@ -1,7 +1,0 @@
-name: m5_stores
-description: The bundled sample file, daily units sold per Walmart store (M5).
-mapping:
-  date: date
-  value: units_sold
-  item: store
-duplicates: sum

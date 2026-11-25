@@ -2,7 +2,7 @@
 
 Hindsight forecasts daily sales for each item or store, shows how that forecast would have performed over the past using only what was known at each date, turns it into order recommendations from your own costs and stock, and keeps a tamper-evident record of each decision so it can be compared with what happened. It runs on your computer, in English and right-to-left Arabic.
 
-**Status.** All seven milestones of the decision-support upgrade are built and tested locally (207 Python and 43 web tests). Publishing the new work (commit, push, redeploy the public demo) waits for the owner's approval. The Arabic wording has not been reviewed by a native speaker. Nothing here has been tested on a real business yet: the evidence is the public M5 Walmart data (US retail) and synthetic files. Start with [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).
+**Status.** All seven milestones of the decision-support upgrade are built and tested locally (211 Python and 43 web tests). Publishing the new work (commit, push, redeploy the public demo) waits for the owner's approval. The Arabic wording has not been reviewed by a native speaker. Nothing here has been tested on a real business yet: the evidence is the public M5 Walmart data (US retail) and synthetic files. Start with [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).
 
 ## What it does
 | Area | In one line |
@@ -14,13 +14,13 @@ Hindsight forecasts daily sales for each item or store, shows how that forecast 
 | **Smart Data Onboarding** | Finds columns in English and Arabic, names items from several columns, handles duplicates, reads price/cost/stock columns, flags data-quality problems, remembers how to read a kind of file |
 | **Decision Audit** | An append-only, hash-chained record of each decision (what was advised, what was ordered, why) and later the outcome |
 
-The app opens on a bundled sample (10 Walmart stores), never on an upload screen. It chooses methods by how much history there is: under 120 days it asks for more, under two years simple rules only, otherwise it adds the learning model and compares it with the simple rule.
+The app opens on a bundled sample (100 real Walmart items from the public M5 data, each added up over the chain's 10 stores), never on an upload screen. It chooses methods by how much history there is: under 120 days it asks for more, under two years simple rules only, otherwise it adds the learning model and compares it with the simple rule.
 
 ## What the evidence says (public M5 data, US retail)
-- The learning model beats the best simple rule by 2 to 3 WAPE points at every aggregated level (all stores 4.5% against 7.5%; one store 7.5% against 9.8%).
-- Stated 80% and 90% ranges held on 79 to 84% and 89 to 93% of days.
-- A stated 95% order service level held 94.5% (3-day cover) down to 91.5% (28-day cover): slightly under target, and the screen shows that table.
-- The health monitor left "healthy" a median of 3 to 4 days after an injected 50% rise or 30% fall on synthetic data; on M5 about a quarter of store-days were not healthy, with no known broken period to compare against.
+- On the 100-item sample the learning model beats the best simple rule by about 1 WAPE point (32.9% against 33.9%, interval +0.2 to +1.6) and is ahead on 88% of replay dates. At store and company level the edge is bigger (2 to 3 points; all stores 4.5% against 7.5%), but single products are much noisier: errors are about a third of sales. The edge is real and small.
+- Stated 80% and 90% ranges held on 79.9% and 89.7% of days on the item sample (79 to 84% and 89 to 93% at store and company level).
+- A stated 95% order service level held 94.1% (3-day cover) down to 92.4% (28-day cover) on the item sample: slightly under target, and the screen shows that table.
+- The health monitor left "healthy" a median of 3 to 6 days after an injected 50% rise or 30% fall on synthetic data. On the 100 items, judged against each item's own earlier noise, 80% of item-days were healthy, 10% watch and 10% action (the fixed limits alone fired on half of all item-days); M5 has no known broken period to compare against.
 - **Not evidenced:** anything about Egyptian shops; money figures on a real business (the sample has no prices, costs or stock); price or promotion effects; health thresholds on real shops. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Run the app
@@ -29,7 +29,7 @@ pip install -e ".[api,dev]"
 python -m uvicorn hindsight.app.api:app --port 8100
 cd web && npm install && npm run dev      # then open http://localhost:5174
 ```
-The first run on the sample replays five years and takes about a minute; the result is cached and later visits open at once. Load your own file on the **Data** page (CSV or Excel). The button at the top right switches between English and Arabic.
+The first run on the sample replays five years and takes a few minutes (about four on the development computer); the result is cached and later visits open at once. Load your own file on the **Data** page (CSV or Excel). The button at the top right switches between English and Arabic.
 
 ## Where things are
 | I want to | Go to |
@@ -60,7 +60,7 @@ A recorded-playback build of the sample needs no server: `scripts/export_snapsho
 ```bash
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e ".[api,dev]"
-python -m pytest -q                                   # 207 tests
+python -m pytest -q                                   # 211 tests
 cd web && npm install && npx vitest run               # 43 tests
 ```
 To regenerate the research results, download the M5 zip (48 MB, CC BY 4.0) from https://zenodo.org/records/12636070, extract it into `data/raw/extracted/`, then run `python scripts/eda_m5.py`, `run_baselines.py`, `run_models.py`, `run_alerts.py`. The decision-feature checks are `scripts/run_inventory_check.py`, `run_health_check.py` and `run_perf_check.py`; each writes to `reports/`.

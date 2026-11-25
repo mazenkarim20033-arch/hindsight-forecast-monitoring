@@ -1,6 +1,6 @@
 # Hindsight: a forecast you can check before you trust it
 
-> **Update.** This case study describes the forecasting core as first published. The app has since gained order recommendations, what-if scenarios, a forecast health monitor, smarter file onboarding and a decision log; start with [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md). The "Stock planner" described below is now the "Ordering-rule backtest" tab of Inventory & decisions.
+> **Update.** This case study describes the forecasting core as first published, on store-level data (the bundled sample is now 100 real items; see [item_sample_m5.md](../reports/item_sample_m5.md)). The app has since gained order recommendations, what-if scenarios, a forecast health monitor, smarter file onboarding and a decision log; start with [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md). The "Stock planner" described below is now the "Ordering-rule backtest" tab of Inventory & decisions.
 
 **One line:** a sales-forecast dashboard whose every forecast comes with a measured track record, built by replaying the past so that each past forecast only sees what was known at the time.
 

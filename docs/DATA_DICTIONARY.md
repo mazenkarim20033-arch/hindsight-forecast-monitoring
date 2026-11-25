@@ -78,5 +78,5 @@ Columns: `id` (never reused), `ts` (UTC), `kind` (`decision` or `outcome`), `ref
 
 **Outcome payload:** the decision id, the later file, the window (from, to, days), per item real sales, the forecast and its error, stock available, leftover, shortage, cost, and the same for each of the three options, totals, the cheapest option in hindsight, and the notes `one_window`, `sales_not_demand`, `not_a_verdict`.
 
-## 10. The bundled sample (`data/sample/m5_stores.csv`)
-Columns `date`, `store`, `units_sold`: daily units for 10 Walmart stores (California 1 to 4, Texas 1 to 3, Wisconsin 1 to 3), 2011-01-29 to 2016-05-22 (1,941 days), derived from the M5 Forecasting competition data, CC BY 4.0. `m5_events.csv` lists calendar events by date. The sample has no prices, costs or stock. See `DATASET_CARD.md`.
+## 10. The bundled sample (`data/sample/m5_items.csv`)
+Columns `date`, `item`, `units_sold`: daily units for 100 real Walmart items (M5 product codes such as `FOODS_3_090`; M5 publishes no product names), each added up over the 10 stores that sell it, 2011-01-29 to 2016-05-22 (1,941 days), derived from the M5 Forecasting competition data, CC BY 4.0. Chosen by the fixed rule in `scripts/make_sample.py`: items that sold on at least 80% of days, each of the 7 departments getting slots in proportion to its size, taken at evenly spaced positions of the ranking by total units. `m5_events.csv` lists calendar events by date. The sample has no prices, costs or stock. See `DATASET_CARD.md`.

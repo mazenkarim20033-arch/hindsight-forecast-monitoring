@@ -35,7 +35,7 @@ def main() -> None:
     a = service.run_analysis(data, service.Settings(horizon=28, calendar="events"), cache_dir=CACHE_DIR)
     d = a.data
     plan = service.plan_for(d.n_days, 28)
-    write(OUT / "dataset.json", {"id": "snapshot", "filename": "Sample: 10 Walmart stores (public M5 data)", "is_sample": True, "report": rep, "detection": det,
+    write(OUT / "dataset.json", {"id": "snapshot", "filename": "Sample: 100 Walmart items (public M5 data)", "is_sample": True, "report": rep, "detection": det,
                                  "n_series": d.n_series, "n_days": d.n_days, "first_date": str(d.dates[0].date()), "last_date": str(d.dates[-1].date()),
                                  "has_events": True, "analyzed": True, "plan": {"tier": plan.tier, "text": plan.explanation, "params": plan.params}})
     write(OUT / "effects.json", service.holiday_effects(a.data))

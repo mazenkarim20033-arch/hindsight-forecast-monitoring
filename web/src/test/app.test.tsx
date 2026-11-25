@@ -115,7 +115,7 @@ describe("dashboard", () => {
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
     const nav = within(screen.getByRole("navigation", { name: /main/i }));
-    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Stores", "Orders", "Reliability", "Decision log", "Data", "Holiday effects", "Replay lab", "Scorecard"]) // the mock data groups by a "store" column, so the menu says stores;
+    expect(nav.getAllByRole("link").map((l) => l.textContent)).toEqual(["Dashboard", "Items", "Orders", "Reliability", "Decision log", "Data", "Holiday effects", "Replay lab", "Scorecard"]) // the menu always says Items, even when the file groups by a store column;
   });
 });
 
@@ -123,7 +123,7 @@ describe("other pages", () => {
   it("lists items, filters them, and opens an item with its forecast, reasons and unusual days", async () => {
     window.location.hash = "#/items";
     const { container } = render(<App />);
-    await screen.findByRole("heading", { level: 1, name: "Stores" });
+    await screen.findByRole("heading", { level: 1, name: "Items" });
     expect(await screen.findByRole("link", { name: "B" })).toBeInTheDocument();
     await userEvent.type(screen.getByRole("searchbox"), "b");
     expect(screen.queryByRole("link", { name: "A" })).not.toBeInTheDocument();

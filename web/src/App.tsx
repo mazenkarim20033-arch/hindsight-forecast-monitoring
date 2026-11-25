@@ -1,8 +1,7 @@
 import { HashRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { IS_SNAPSHOT } from "./api/client";
 import { ErrorBox } from "./components/States";
-import { useEffect } from "react";
-import { LangProvider, nounFor, useLang } from "./i18n";
+import { LangProvider, useLang } from "./i18n";
 import Dashboard from "./pages/Dashboard";
 import Data from "./pages/Data";
 import ItemDetail from "./pages/ItemDetail";
@@ -34,9 +33,9 @@ function Boot() {
 
 function Shell() {
   const { dataset, overview, booting, problem, owner } = useSession();
-  const { t, lang, setLang, setNoun } = useLang();
-  const header = dataset?.detection.item;
-  useEffect(() => setNoun(nounFor(header)), [header, setNoun]);
+  // Everything is called an item, whatever the file groups by (a store column, a product, a branch). The store wording in the dictionaries is kept
+  // but switched off: most people will use this to manage items, so the menu says Items even for the bundled store-level sample.
+  const { t, lang, setLang } = useLang();
   const ready = Boolean(dataset && overview);
   return (
     <>

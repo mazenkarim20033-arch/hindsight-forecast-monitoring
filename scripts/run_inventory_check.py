@@ -17,12 +17,12 @@ def main() -> None:
     data, _, _ = load_sample()
     a = service.run_analysis(data, service.Settings(horizon=28, calendar="events"), cache_dir=CACHE_DIR)
     lines = ["# Service-level check on the M5 sample", "",
-             f"{a.data.n_series} stores, {a.data.n_days} days, method '{service.AUTO}', {int(a.in_window[: a.n_real].sum())} scored replay dates per store.", "",
+             f"{a.data.n_series} items, {a.data.n_days} days, method '{service.AUTO}', {int(a.in_window[: a.n_real].sum())} scored replay dates per item.", "",
              "| Cover period (days) | Target | Realized | Cases |", "|---|---|---|---|"]
     for days in (3, 7, 10, 14, 21, 28):
         for row in inv.calibration(a, service.AUTO, days, LEVELS):
             lines.append(f"| {days} | {row['target']:.0%} | {row['realized']:.1%} | {row['n_cases']} |")
-    lines += ["", "Cases overlap in time (neighbouring replay dates share days), so small gaps are within noise. Store-level data only: item-level files with many zero days were not checked."]
+    lines += ["", "Cases overlap in time (neighbouring replay dates share days), so small gaps are within noise. Items are products added up over the chain's 10 stores (each sold on at least 80% of days); a single item in a single store (68% zero days in M5) was not checked."]
     out = ROOT / "reports" / "inventory_m5.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
