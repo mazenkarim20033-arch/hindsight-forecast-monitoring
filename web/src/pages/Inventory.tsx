@@ -33,17 +33,36 @@ export default function Inventory() {
 
 const risk = (p: number): "low" | "medium" | "high" => (p < 0.1 ? "low" : p < 0.25 ? "medium" : "high");
 const OPTION_KEYS: StrategyKey[] = ["conservative", "balanced", "high_availability"];
+const SHOWN = 10;
+
+function downloadCsv(rows: string[][]) {
+  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const url = URL.createObjectURL(new Blob([rows.map((r) => r.map(cell).join(",")).join("\n")], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "order-list.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
 
 function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios" | "backtest") => void }) {
   const { dataset, overview } = useSession();
   const { t, n } = useLang();
-  const { mode, setMode, form, set, stock, setStock, illustrative, fillExample, clear, body, locked, hasFile, fromFile, fillFromFile } = base;
+  const { mode, setMode, form, set, stock, setStock, illustrative, guess, fillExample, clear, body, locked, hasFile, fromFile, fillFromFile } = base;
   const [strategy, setStrategy] = useState<StrategyKey>("balanced");
+  const [query, setQuery] = useState("");
+  const [all, setAll] = useState(false);
   const key = useDebounced(JSON.stringify(body));
   const res = useAsync((signal) => (key === "null" ? Promise.resolve(null) : api.inventory(dataset!.id, JSON.parse(key), signal)), [dataset!.id, key]);
   const r: Result | null = res.data;
   const ok = r ? r.items.filter((i) => i.status === "ok") : [];
   const total = r?.totals[strategy];
+  // Without costs every item gets the same safety level, so every item has the same risk and the column says nothing: then it is hidden and the biggest orders come first.
+  // With costs the risk differs between items, and the items most likely to run out come first.
+  const risks = r ? r.items.map((i) => i.by_strategy[strategy]?.p_stockout).filter((x): x is number => x !== undefined) : [];
+  const varied = risks.length > 1 && Math.max(...risks) - Math.min(...risks) >= 0.02;
+  const sorted = r ? [...r.items].sort((a, b) => (varied ? (b.by_strategy[strategy]?.p_stockout ?? -1) - (a.by_strategy[strategy]?.p_stockout ?? -1) : (b.by_strategy[strategy]?.order ?? -1) - (a.by_strategy[strategy]?.order ?? -1))) : [];
+  const q = query.trim().toLowerCase();
+  const matching = q ? sorted.filter((i) => i.item.toLowerCase().includes(q)) : sorted;
+  const rows = all || q ? matching : matching.slice(0, SHOWN);
 
   return (
     <>
@@ -63,18 +82,19 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
             <Num label={t("inv.f.period")} value={form.period} onChange={set("period")} disabled={locked} />
           )}
         </div>
+        {guess && !locked && <p className="note-box" role="note">{t("inv.guess", { lead: form.lead, review: form.review })}</p>}
         {!locked && (
           <p>
             {hasFile && <><button className="btn primary" onClick={fillFromFile}>{t("inv.fromfile")}</button>{" "}</>}
-            <button className="btn" onClick={fillExample}>{t("inv.example")}</button>{" "}
             <button className="btn link" onClick={clear}>{t("inv.clear")}</button>
           </p>
         )}
         {fromFile && <p className="note-box" role="note">{t("inv.fromfile.note", { items: fromFile.items, price: t(`inv.fromfile.${fromFile.price}`, { what: t("inv.f.price") }), cost: t(`inv.fromfile.${fromFile.cost}`, { what: t("inv.f.cost") }) })}</p>}
 
         <details className="more">
-          <summary>{t("inv.more.costs")}</summary>
+          <summary>{t("inv.more.details")}</summary>
           <p className="fine">{t("inv.more.costs.lede")}</p>
+          {!locked && <p><button className="btn" onClick={fillExample}>{t("inv.example")}</button></p>}
           <div className="seg" role="radiogroup" aria-label={t("inv.mode")} style={{ marginBottom: "0.8rem" }}>
             {(["periodic_review", "single_period"] as const).map((m) => (
               <label key={m} className={mode === m ? "on" : ""}><input type="radio" name="inv-mode" checked={mode === m} disabled={locked} onChange={() => setMode(m)} />{t(`inv.mode.${m}`)}</label>
@@ -90,10 +110,7 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
             <Num label={t("inv.f.moq")} value={form.moq} onChange={set("moq")} disabled={locked} />
             <Num label={t("inv.f.multiple")} value={form.multiple} onChange={set("multiple")} disabled={locked} />
           </div>
-        </details>
-
-        <details className="more">
-          <summary>{t("inv.more.stock")}</summary>
+          <h3>{t("inv.more.stock")}</h3>
           <p className="muted">{t("inv.stock.lede")}</p>
           <div className="table-wrap" tabIndex={0} role="region" aria-label={t("inv.stock")}>
             <table>
@@ -126,22 +143,27 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
             <h2>{t("inv.answer.title")}</h2>
             {ok.length === 0 ? <p className="note-box">{t("inv.limited")}</p> : (
               <>
-                <div className="options" role="radiogroup" aria-label={t("inv.strategy")}>
+                <div className="seg" role="radiogroup" aria-label={t("inv.care")} style={{ marginBottom: "0.5rem" }}>
                   {OPTION_KEYS.map((k) => (
-                    <label key={k} className={`option ${k === strategy ? "on" : ""}`}>
-                      <input type="radio" name="inv-option" checked={k === strategy} onChange={() => setStrategy(k)} />
-                      <strong>{t(`inv.opt.${k}`)}</strong>
-                      <span className="option-big">{num(r.totals[k]?.order)}</span>
-                      <span className="fine">{t(`inv.opt.${k}.desc`)}</span>
-                    </label>
+                    <label key={k} className={k === strategy ? "on" : ""}><input type="radio" name="inv-option" checked={k === strategy} onChange={() => setStrategy(k)} />{t(`inv.opt.${k}`)}</label>
                   ))}
                 </div>
-                <p className="headline-sm">{t("inv.answer", { total: num(total?.order), count: n("unit.item", ok.length), days: n("unit.day", r.window_days), chance: pct(r.levels[strategy]) })}</p>
-                <div className="table-wrap" tabIndex={0} role="region" aria-label={t("inv.answer.title")}>
+                <p className="fine">{t(`inv.opt.${strategy}.desc`)}</p>
+                <div className="bigstats">
+                  <div className="bigstat"><span className="option-big">{num(total?.order)}</span><span>{t("inv.big.order", { count: n("unit.item", ok.length), days: n("unit.day", r.window_days) })}</span></div>
+                  <div className="bigstat"><span className="option-big">{pct(r.levels[strategy])}</span><span>{t("inv.big.chance")}</span></div>
+                </div>
+
+                <h3>{t("inv.list.title")}</h3>
+                <p className="muted">{t(varied ? "inv.list.lede" : "inv.list.lede_size")}</p>
+                {r.items.length > SHOWN && (
+                  <label className="field" style={{ maxWidth: "20rem" }}><span>{t("inv.search")}</span><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+                )}
+                <div className="table-wrap" tabIndex={0} role="region" aria-label={t("inv.list.title")}>
                   <table>
-                    <thead><tr><th scope="col">{t("score.items.item")}</th><th scope="col" className="num">{t("inv.col.order_now")}</th><th scope="col" className="num">{t("inv.c.forecast")}</th><th scope="col">{t("inv.col.risk")}</th></tr></thead>
+                    <thead><tr><th scope="col">{t("score.items.item")}</th><th scope="col" className="num">{t("inv.col.order_now")}</th><th scope="col" className="num">{t("inv.col.expected")}</th>{varied && <th scope="col">{t("inv.col.risk")}</th>}</tr></thead>
                     <tbody>
-                      {r.items.map((i) => {
+                      {rows.map((i) => {
                         const s = i.by_strategy[strategy];
                         return (
                           <tr key={i.item}>
@@ -150,20 +172,30 @@ function Orders({ base, openTool }: { base: BaseInputs; openTool: (v: "scenarios
                               <>
                                 <td className="num"><strong>{num(s.order)}</strong></td>
                                 <td className="num">{num(i.forecast_demand)}</td>
-                                <td><span className={`risk ${risk(s.p_stockout)}`}>{t(`inv.risk.${risk(s.p_stockout)}`)}</span> <small className="muted">{pct(s.p_stockout)}</small></td>
+                                {varied && <td><span className={`risk ${risk(s.p_stockout)}`}>{t(`inv.risk.${risk(s.p_stockout)}`)}</span> <small className="muted">{pct(s.p_stockout)}</small></td>}
                               </>
-                            ) : <td colSpan={3}>{t("inv.limited.item")}</td>}
+                            ) : <td colSpan={varied ? 3 : 2}>{t("inv.limited.item")}</td>}
                           </tr>
                         );
                       })}
+                      {rows.length === 0 && <tr><td colSpan={varied ? 4 : 3}>{t("inv.search.none")}</td></tr>}
                     </tbody>
                   </table>
                 </div>
+                <p className="toolbar">
+                  {!q && matching.length > SHOWN && <button className="btn" onClick={() => setAll(!all)}>{all ? t("inv.show_less") : t("inv.show_all", { n: matching.length })}</button>}
+                  <button className="btn" onClick={() => downloadCsv([["item", "order_now", "expected_sales", "risk_of_running_out"], ...sorted.filter((i) => i.by_strategy[strategy]).map((i) => [i.item, String(i.by_strategy[strategy]!.order), String(i.forecast_demand), String(i.by_strategy[strategy]!.p_stockout)])])}>{t("inv.csv")}</button>
+                </p>
                 <p className="fine">{t("inv.answer.note")}</p>
               </>
             )}
           </section>
-          {!locked && ok.length > 0 && <RecordDecision body={body} items={r.items} strategy={strategy} />}
+          {!locked && ok.length > 0 && (
+            <details className="more">
+              <summary>{t("inv.record.title")}</summary>
+              <RecordDecision body={body} items={r.items} strategy={strategy} />
+            </details>
+          )}
           <details className="more">
             <summary>{t("inv.details")}</summary>
             <Results r={r} strategy={strategy} setStrategy={setStrategy} n={n} />

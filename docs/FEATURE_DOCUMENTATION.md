@@ -240,3 +240,11 @@ At the owner's request the interface was made simpler without changing any calcu
 - **Dashboard.** The side notes were removed and the health status and the scorecard verdict were merged into one "Can the forecast be trusted?" section with three buttons.
 - **Reliability page.** The status, the reasons, the error chart and the per-item table come first; the table of checks, the rules, and the retrained-model test are folded under "How this was decided" and "Advanced".
 Tests: 43 web tests pass (the same count, updated to the new wording); the axe audit of the dashboard, orders and reliability pages (with every fold open) in light and dark found no violations.
+
+### Second pass on the Orders page (easier to use)
+- **An answer straight away.** The form starts with a delivery time of 3 days and an order every 7 days, and says in a note that these are a starting guess until the person changes either one. (Before, the page was empty until a lead time was typed.)
+- **Plain questions:** "How many days does a delivery take?" and "How often do you order? (every ... days)". Prices, costs and current stock, the mode switch and an "example prices and stock" button are together under one fold.
+- **One choice and two big numbers:** a three-way switch (Play it safe on stock, Balanced, Never run out) with one line explaining the selected option, then the units to order and the chance of not running out.
+- **A short list:** the 10 items that matter most first, a search box, "Show all N items", and a CSV download of the order list. With no costs every item gets the same safety level, so the risk column would say the same thing 100 times; it is hidden in that case and the biggest orders come first. With stock entered, risk differs per item and the items most likely to run out come first.
+- **Folded away:** saving the decision ("Keep a record of this order"), and every earlier number under "See the numbers behind this".
+

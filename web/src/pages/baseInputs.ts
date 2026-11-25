@@ -7,6 +7,8 @@ export type Form = Record<"lead" | "review" | "period" | "price" | "cost" | "hol
 export const EMPTY: Form = { lead: "", review: "", period: "", price: "", cost: "", holding: "", penalty: "", salvage: "", service: "", moq: "", multiple: "" };
 /** An example only: it fills the form so the screen can be explored. It is not data from the file. */
 export const EXAMPLE: Form = { ...EMPTY, lead: "3", review: "7", price: "10", cost: "6", holding: "0.05" };
+/** What the form starts with, so the page can show an answer at once. The page says it is a guess until the person changes it. */
+export const STARTER: Form = { ...EMPTY, lead: "3", review: "7" };
 export const EXAMPLE_COVER_DAYS = 5; // example stock on hand: this many days of average sales
 
 export const toNum = (s: string): number | undefined => {
@@ -18,13 +20,14 @@ export const toNum = (s: string): number | undefined => {
 export function useBaseInputs() {
   const { overview, method, dataset } = useSession();
   const [mode, setMode] = useState<InventoryInputs["mode"]>("periodic_review");
-  const [form, setForm] = useState<Form>(IS_SNAPSHOT ? EXAMPLE : EMPTY);
+  const [form, setForm] = useState<Form>(IS_SNAPSHOT ? EXAMPLE : STARTER);
+  const [guess, setGuess] = useState(!IS_SNAPSHOT);
   const avg = useMemo(() => Object.fromEntries((overview?.series ?? []).map((s) => [s.id, s.average_per_day])), [overview]);
   const exampleStock = () => Object.fromEntries(Object.entries(avg).map(([id, a]) => [id, { on_hand: String(Math.round(a * EXAMPLE_COVER_DAYS)), on_order: "0" }]));
   const [stock, setStock] = useState<Record<string, { on_hand: string; on_order: string }>>(() => (IS_SNAPSHOT ? exampleStock() : {}));
   const [illustrative, setIllustrative] = useState(IS_SNAPSHOT);
-  const set = (k: keyof Form) => (v: string) => { setForm((f) => ({ ...f, [k]: v })); };
-  const fillExample = () => { setMode("periodic_review"); setForm(EXAMPLE); setStock(exampleStock()); setIllustrative(true); };
+  const set = (k: keyof Form) => (v: string) => { setForm((f) => ({ ...f, [k]: v })); setGuess(false); };
+  const fillExample = () => { setMode("periodic_review"); setForm(EXAMPLE); setStock(exampleStock()); setIllustrative(true); setGuess(false); };
   const fileValues = dataset?.report.business?.values ?? {};
   const hasFile = Object.keys(fileValues).length > 0;
   const [fromFile, setFromFile] = useState<{ items: number; price: "set" | "differs" | "none"; cost: "set" | "differs" | "none" } | null>(null);
@@ -46,7 +49,7 @@ export function useBaseInputs() {
     setIllustrative(false);
     setFromFile({ items: Object.keys(nextStock).length, price: price.state, cost: cost.state });
   };
-  const clear = () => { setForm(EMPTY); setStock({}); setIllustrative(false); setFromFile(null); };
+  const clear = () => { setMode("periodic_review"); setForm(STARTER); setStock({}); setIllustrative(false); setFromFile(null); setGuess(true); };
 
   const body = useMemo<InventoryInputs | null>(() => {
     const ready = mode === "periodic_review" ? toNum(form.lead) !== undefined : toNum(form.period) !== undefined;
@@ -58,7 +61,7 @@ export function useBaseInputs() {
       stock: Object.fromEntries(Object.entries(stock).map(([id, s]) => [id, { on_hand: toNum(s.on_hand), on_order: toNum(s.on_order) }]).filter(([, s]) => (s as { on_hand?: number }).on_hand !== undefined)),
     };
   }, [form, stock, mode, method]);
-  return { mode, setMode, form, set, stock, setStock, illustrative, fillExample, clear, body, locked: IS_SNAPSHOT, hasFile, fromFile, fillFromFile };
+  return { mode, setMode, form, set, stock, setStock, illustrative, guess, fillExample, clear, body, locked: IS_SNAPSHOT, hasFile, fromFile, fillFromFile };
 }
 export type BaseInputs = ReturnType<typeof useBaseInputs>;
 
