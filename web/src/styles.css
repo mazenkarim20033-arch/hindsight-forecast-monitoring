@@ -7,13 +7,13 @@
   --ink-2: #455a62;
   --ink-3: #566a72;
   --rule: #b8c5ca;
-  --pred: #0a6770;
-  --pred-soft: rgba(10, 103, 112, 0.2);
-  --pred-softer: rgba(10, 103, 112, 0.09);
+  --pred: #8a5700;
+  --pred-soft: rgba(138, 87, 0, 0.2);
+  --pred-softer: rgba(138, 87, 0, 0.09);
   --normal: #1f6a57;
   --warning: #8a5700;
   --critical: #b0321f;
-  --focus: #0a6770;
+  --focus: #8a5700;
   --display: "IBM Plex Sans Condensed", "IBM Plex Sans Arabic", Bahnschrift, "Arial Narrow", Arial, sans-serif;
   --body: "IBM Plex Sans", "IBM Plex Sans Arabic", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
