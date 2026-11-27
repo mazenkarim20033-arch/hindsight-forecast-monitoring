@@ -162,11 +162,13 @@ function Timeline({ r }: { r: Result }) {
   const last = pts[pts.length - 1];
   const ticks = [0, max / 2, max];
   return (
-    <div ref={ref} className="panel">
+    <div className="panel">
       <ul className="legend" aria-label={t("replay.legend")}>
         <li><i className="sw line-solid" /> {t("health.legend.method")}</li>
         <li><i className="sw line-dash" /> {t("health.legend.simple")}</li>
       </ul>
+      {/* measured inside the panel's padding, and allowed to shrink, so the chart never spills out of the box */}
+      <div ref={ref} style={{ minWidth: 0, overflow: "hidden" }}>
       <svg width={width} height={H} role="img" aria-label={t("health.timeline.label", { method: r.method, last: pct(last.rolling, 1), simple: pct(last.rolling_reference, 1), from: dateShort(pts[0].known), to: dateShort(last.known) })}>
         {ticks.map((v) => <g key={v}><line x1={m.l} x2={width - m.r} y1={y(v)} y2={y(v)} stroke="var(--rule)" strokeWidth="1" /><text x={m.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--ink-2)">{pct(v)}</text></g>)}
         <path d={line("rolling_reference")} fill="none" stroke="var(--ink-2)" strokeWidth="2" strokeDasharray="6 4" />
@@ -174,6 +176,7 @@ function Timeline({ r }: { r: Result }) {
         <text x={m.l} y={H - 8} fontSize="11" fill="var(--ink-2)">{dateShort(pts[0].known)}</text>
         <text x={width - m.r} y={H - 8} fontSize="11" textAnchor="end" fill="var(--ink-2)">{dateShort(last.known)}</text>
       </svg>
+      </div>
     </div>
   );
 }
